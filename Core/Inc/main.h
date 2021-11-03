@@ -84,7 +84,8 @@ void Error_Handler(void);
 #define LCD_RES_Pin GPIO_PIN_8
 #define LCD_RES_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
-
+#define COMMS_MODE_PDIO		0x00
+#define COMMS_MODE_CONF		0x01
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

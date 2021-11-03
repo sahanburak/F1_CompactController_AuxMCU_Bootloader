@@ -37,6 +37,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define ERR_LED1_On()			HAL_GPIO_WritePin(INT_LED1_GPIO_Port, INT_LED1_Pin, GPIO_PIN_RESET)
+#define ERR_LED1_Off()			HAL_GPIO_WritePin(INT_LED1_GPIO_Port, INT_LED1_Pin, GPIO_PIN_SET)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -53,12 +55,12 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+void comms_set_mode();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+uint8_t g_comms_mode = COMMS_MODE_PDIO;
 /* USER CODE END 0 */
 
 /**
@@ -94,7 +96,7 @@ int main(void)
   MX_SPI1_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  comms_set_mode();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -149,6 +151,23 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
+void comms_set_mode()
+{
+	if (STM_MODE_SEL_GPIO_Port->IDR & STM_MODE_SEL_Pin){
+		g_comms_mode = COMMS_MODE_CONF;
+		dbprintf("Conf Mode");
+		ERR_LED1_On();
+	}else{
+		g_comms_mode = COMMS_MODE_PDIO;
+		dbprintf("PDIO Mode");
+		ERR_LED1_Off();
+	}
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	comms_set_mode();
+}
 /* USER CODE END 4 */
 
 /**
