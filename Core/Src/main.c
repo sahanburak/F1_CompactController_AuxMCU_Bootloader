@@ -27,7 +27,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "io.h"
+#include "rt_bus_proto.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -37,8 +38,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define ERR_LED1_On()			HAL_GPIO_WritePin(INT_LED1_GPIO_Port, INT_LED1_Pin, GPIO_PIN_RESET)
-#define ERR_LED1_Off()			HAL_GPIO_WritePin(INT_LED1_GPIO_Port, INT_LED1_Pin, GPIO_PIN_SET)
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -49,7 +49,18 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+extern SPI_HandleTypeDef hspi1;
+extern DMA_HandleTypeDef hdma_spi1_rx;
+extern DMA_HandleTypeDef hdma_spi1_tx;
+uint16_t currentDMA = SPI_TX_BUF_SIZE;
+uint16_t prevDMA = SPI_TX_BUF_SIZE;
+uint8_t gRunMode = RT_RunMode_None;
+uint8_t gStayInBootloader = 0;
+extern uint8_t gSPI_Tx_Buf[SPI_TX_BUF_SIZE];
+extern uint8_t gSPI_Rx_Buf[SPI_RX_BUF_SIZE];
+uint8_t g_comms_mode = COMMS_MODE_PDIO;
+extern tPDO g_PDO;
+extern tPDI g_PDI;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -60,7 +71,7 @@ void comms_set_mode();
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-uint8_t g_comms_mode = COMMS_MODE_PDIO;
+
 /* USER CODE END 0 */
 
 /**
@@ -107,6 +118,11 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  if(g_comms_mode == COMMS_MODE_PDIO){
+	  		rt_get_io_values();
+		}else{
+			rt_bus_proto_bl_dt();
+		}
   }
   /* USER CODE END 3 */
 }
@@ -167,6 +183,12 @@ void comms_set_mode()
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	comms_set_mode();
+}
+
+void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi)
+{
+	dbprintf("%s",__func__);
+	SPI_DMA_Reset();
 }
 /* USER CODE END 4 */
 

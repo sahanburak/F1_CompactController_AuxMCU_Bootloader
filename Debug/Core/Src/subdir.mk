@@ -5,10 +5,13 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
+../Core/Src/crc16.c \
 ../Core/Src/dma.c \
 ../Core/Src/gpio.c \
 ../Core/Src/i2c.c \
+../Core/Src/io.c \
 ../Core/Src/main.c \
+../Core/Src/rt_bus_proto.c \
 ../Core/Src/spi.c \
 ../Core/Src/stm32f1xx_hal_msp.c \
 ../Core/Src/stm32f1xx_it.c \
@@ -18,10 +21,13 @@ C_SRCS += \
 ../Core/Src/usart.c 
 
 OBJS += \
+./Core/Src/crc16.o \
 ./Core/Src/dma.o \
 ./Core/Src/gpio.o \
 ./Core/Src/i2c.o \
+./Core/Src/io.o \
 ./Core/Src/main.o \
+./Core/Src/rt_bus_proto.o \
 ./Core/Src/spi.o \
 ./Core/Src/stm32f1xx_hal_msp.o \
 ./Core/Src/stm32f1xx_it.o \
@@ -31,10 +37,13 @@ OBJS += \
 ./Core/Src/usart.o 
 
 C_DEPS += \
+./Core/Src/crc16.d \
 ./Core/Src/dma.d \
 ./Core/Src/gpio.d \
 ./Core/Src/i2c.d \
+./Core/Src/io.d \
 ./Core/Src/main.d \
+./Core/Src/rt_bus_proto.d \
 ./Core/Src/spi.d \
 ./Core/Src/stm32f1xx_hal_msp.d \
 ./Core/Src/stm32f1xx_it.d \
