@@ -33,13 +33,13 @@
 const tBusCommand commands[] =
 {
 		{CMD_PING, 				&rt_bus_cmd_ping_handler},
-		{CMD_Read,				&rt_bus_cmd_read_data_handler},
 		{CMD_Get_RunMode,		&rt_bus_cmd_get_runmode_handler},
 		//{CMD_Info_Read,			&rt_bus_cmd_read_info_handler},
 		{CMD_RESET,				&rt_bus_cmd_reset},
 		{CMD_BL_Stay, 			&rt_bus_cmd_bl_stay},
 		{CMD_BL_Write,			&rt_bus_cmd_bl_write_handler},
 		{CMD_BL_Erase,			&rt_bus_cmd_bl_erase_handler},
+		{CMD_Prepare_Response,	&rt_bus_cmd_prepare_response_handler},
 
 };
 /*============================================================================*/
@@ -69,48 +69,67 @@ uint8_t flashBuffer[1024 +16];
 const int gCommandCount = (sizeof(commands)/sizeof(tBusCommand));
 uint8_t gSPI_Tx_Buf[SPI_TX_BUF_SIZE];
 uint8_t gSPI_Rx_Buf[SPI_RX_BUF_SIZE];
-uint8_t rxBuffer[SPI_RX_BUF_SIZE];
-uint8_t txBuffer[SPI_RX_BUF_SIZE];
 uint8_t isFrameReady=0;
 uint32_t rxFrameSize = 0;
 uint32_t lastRxTime = 0;
 uint32_t gFrameCount = 0;
-uint8_t str[255];
 /*static*/ uint16_t prevDMACnt=SPI_RX_BUF_SIZE;
+tRT_Command_Packet gRT_Command_Packet;
 
-uint32_t test[2]= {0, 0};
 /*============================================================================*/
 /* Implementation of functions                                                */
 /*============================================================================*/
-void rt_bus_proto_frame_pack(uint8_t cmd, uint16_t *datalength)
+void rt_bus_proto_frame_pack(tRT_Command_Packet sRT_Command_Packet, uint16_t *datalength)
 {
 	uint16_t cCRC = 0;
 
+	sRT_Command_Packet.stx = PRT_STX;
+	sRT_Command_Packet.address = 0;
+	sRT_Command_Packet.len = (*datalength)+sizeof(sRT_Command_Packet.cmd);
 
-	txBuffer[0] = PRT_STX;
+	cCRC =  crc16(&sRT_Command_Packet.address, (*datalength)+5);
+	sRT_Command_Packet.crc = cCRC;
+	sRT_Command_Packet.etx = PRT_ETX;
 
-	txBuffer[1] = (/*uBusId*/0 & 0xFF00)>>8;
-	txBuffer[2] = (/*uBusId*/0 & 0x00FF);
+	int offset = 0;
+	memcpy(&gSPI_Tx_Buf[offset],&sRT_Command_Packet.stx,sizeof(sRT_Command_Packet.stx));
+	offset +=sizeof(sRT_Command_Packet.stx);
+	memcpy(&gSPI_Tx_Buf[offset],&sRT_Command_Packet.address,sizeof(sRT_Command_Packet.address));
+	offset +=sizeof(sRT_Command_Packet.address);
+	memcpy(&gSPI_Tx_Buf[offset],&sRT_Command_Packet.len,sizeof(sRT_Command_Packet.len));
+	offset +=sizeof(sRT_Command_Packet.len);
+	memcpy(&gSPI_Tx_Buf[offset],&sRT_Command_Packet.cmd,sizeof(sRT_Command_Packet.cmd));
+	offset +=sizeof(sRT_Command_Packet.cmd);
+	memcpy(&gSPI_Tx_Buf[offset],&sRT_Command_Packet.data[0],(sRT_Command_Packet.len-sizeof(sRT_Command_Packet.cmd)));
+	offset +=(sRT_Command_Packet.len-sizeof(sRT_Command_Packet.cmd));
+	memcpy(&gSPI_Tx_Buf[offset],&sRT_Command_Packet.crc,sizeof(sRT_Command_Packet.crc));
+	offset +=sizeof(sRT_Command_Packet.crc);
+	memcpy(&gSPI_Tx_Buf[offset],&sRT_Command_Packet.etx,sizeof(sRT_Command_Packet.etx));
+}
 
-	txBuffer[3] = (((*datalength)+1) & 0xFF00)>>8;
-	txBuffer[4] = (((*datalength)+1) & 0xFF);
+tRT_Command_Packet rt_bus_proto_pack_parser(uint8_t *data){
 
-	txBuffer[5] = cmd;
-
-	cCRC =  crc16(&txBuffer[PRT_AD_MSB_IDX], *datalength+5);
-
-	txBuffer[*datalength + 6] = (cCRC & 0xFF00)>>8;
-	txBuffer[*datalength + 7] = (cCRC & 0x00FF);
-	txBuffer[*datalength + 8] = PRT_ETX;
-
-	*datalength += 9;
-
-	memcpy(&gSPI_Tx_Buf[0],&txBuffer[0],*datalength);
-
+	tRT_Command_Packet sRT_Command_Packet;
+	int offset = 0;
+	memcpy(&sRT_Command_Packet.stx,&data[0],sizeof(sRT_Command_Packet.stx));
+	offset +=sizeof(sRT_Command_Packet.stx);
+	memcpy(&sRT_Command_Packet.address,&data[offset],sizeof(sRT_Command_Packet.address));
+	offset +=sizeof(sRT_Command_Packet.address);
+	memcpy(&sRT_Command_Packet.len,&data[offset],sizeof(sRT_Command_Packet.len));
+	offset +=sizeof(sRT_Command_Packet.len);
+	memcpy(&sRT_Command_Packet.cmd,&data[offset],sizeof(sRT_Command_Packet.cmd));
+	offset +=sizeof(sRT_Command_Packet.cmd);
+	memcpy(&sRT_Command_Packet.data,&data[offset],(sRT_Command_Packet.len-sizeof(sRT_Command_Packet.cmd)));
+	offset +=(sRT_Command_Packet.len-sizeof(sRT_Command_Packet.cmd));
+	memcpy(&sRT_Command_Packet.crc,&data[offset],sizeof(sRT_Command_Packet.crc));
+	offset +=sizeof(sRT_Command_Packet.crc);
+	memcpy(&sRT_Command_Packet.etx,&data[offset],sizeof(sRT_Command_Packet.etx));
+	return sRT_Command_Packet;
 }
 
 uint32_t rt_bus_cmd_ping_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
 {
+	dbprintf("%s",__func__);
 	if (rxLen != 1)
 	{
 		return RT_PROTO_FrameError;
@@ -123,6 +142,7 @@ uint32_t rt_bus_cmd_ping_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *txData
 
 uint32_t rt_bus_cmd_reset (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
 {
+	dbprintf("%s",__func__);
 	/*iapMailbox[0] = 0;
 	iapMailbox[1] = 0;*/
 	NVIC_SystemReset();
@@ -132,21 +152,12 @@ uint32_t rt_bus_cmd_reset (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16
 
 uint32_t rt_bus_cmd_get_runmode_handler(uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
 {
-	uint32_t length = 0;
+	dbprintf("%s",__func__);
 	txData[0] = gRunMode;
-	length ++;
-	*txLen = length;
+	(*txLen) = (*txLen)+1;
 	return RT_PROTO_OK;
 }
 
-uint32_t rt_bus_cmd_read_data_handler(uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
-{
-	test[0] +=0x01010101;
-	test[1] +=0x01010101;
-	memcpy(&txData[0],&test[0],8);
-	*txLen = 8;
-	return RT_PROTO_OK;
-}
 /*
 uint32_t rt_bus_cmd_read_info_handler(uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
 {
@@ -178,22 +189,24 @@ uint32_t rt_bus_cmd_read_info_handler(uint8_t *rxData,uint16_t rxLen,uint8_t *tx
 
 uint32_t get_mem_type(uint32_t address)
 {
-	//if ((address >= FLASH_START_ADDRESS) & (address<=FLASH_END_ADDRESS))
+	if ((address >= FLASH_START_ADDRESS) & (address<=FLASH_END_ADDRESS))
 	return MEM_TYPE_FLASH;
-	//else if ((address >= RAM_START_ADDRESS) & (address <= RAM_END_ADDRESS))
+	else if ((address >= RAM_START_ADDRESS) & (address <= RAM_END_ADDRESS))
 	return MEM_TYPE_RAM;
-	//else
+	else
 	return MEM_TYPE_UNK;
 }
 
 uint32_t rt_bus_cmd_bl_stay (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
 {
+	dbprintf("%s",__func__);
 	gStayInBootloader = 1;
 	return RT_PROTO_OK;
 }
 
 uint32_t rt_bus_cmd_bl_write_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
 {
+	dbprintf("%s",__func__);
 	uint32_t writeaddress;
 	uint32_t mtype;
 	uint8_t decBuffer[16];
@@ -253,12 +266,14 @@ uint32_t rt_bus_cmd_bl_write_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *tx
 
 uint32_t rt_bus_cmd_bl_erase_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
 {
+	dbprintf("%s",__func__);
 	uint32_t eraseaddress;
 	uint32_t eraseLen;
-	uint32_t mtype;
+	uint32_t mtype = MEM_TYPE_UNK;
 
 	if (rxLen != 0x08)
 		return RT_PROTO_DataError;
+
 
 	memcpy(&eraseaddress,&rxData[0],4);
 	memcpy(&eraseLen,&rxData[4],4);
@@ -266,25 +281,30 @@ uint32_t rt_bus_cmd_bl_erase_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *tx
 	dbprintf("Erasing flash... Start Address : %08X, Size: %d\n\r",eraseaddress,eraseLen);
 
 
-	if (eraseaddress % FLASH_PAGE_SIZE)
+	if (eraseaddress % FLASH_PAGE_SIZE){
+		dbprintf("%s_%d",__func__,__LINE__);
 		return RT_PROTO_DataError;
-	if (eraseLen % FLASH_PAGE_SIZE)
+	}
+	if (eraseLen % FLASH_PAGE_SIZE){
+		dbprintf("%s_%d",__func__,__LINE__);
 		return RT_PROTO_DataError;
-
-
+	}
 
 	mtype = get_mem_type(eraseaddress);
+
 	if (mtype == MEM_TYPE_FLASH)
 	{
-		/*FLASH_If_Init();
+		dbprintf("MEM_TYPE_FLASH");
+		FLASH_If_Init();
 		if (FLASH_If_Erase(eraseaddress,eraseLen) != HAL_OK){
-			dbprintf("RT_PROTO_ExcError\n\r");
+			dbprintf("RT_PROTO_ExcError");
 			return RT_PROTO_ExcError;
-		}*/
+		}
+		dbprintf("Erased flash");
 	}
 	else if (mtype == MEM_TYPE_RAM)
 	{
-		dbprintf("MEM_TYPE_RAM\n\r");
+		dbprintf("MEM_TYPE_RAM");
 		memset((unsigned char *)eraseaddress,0,eraseLen);
 	}
 	else
@@ -295,16 +315,20 @@ uint32_t rt_bus_cmd_bl_erase_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *tx
 	return RT_PROTO_OK;
 }
 
+uint32_t rt_bus_cmd_prepare_response_handler(uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
+{
+	dbprintf("%s",__func__);
+	return RT_PROTO_OK;
+}
 
 void SPI_DMA_Reset(){
 	HAL_SPI_DMAStop(&hspi1);
 	HAL_SPI_TransmitReceive_DMA(&hspi1,gSPI_Tx_Buf, gSPI_Rx_Buf, SPI_RX_BUF_SIZE);
 	prevDMACnt = SPI_RX_BUF_SIZE;
 	rxFrameSize = 0;
-	prevDMA = SPI_TX_BUF_SIZE;
 }
 
-void rt_bus_proto_bl_process()
+void rt_bus_proto_bl_process(tRT_Command_Packet sRT_Command_Packet )
 {
 	uint16_t pSize = 0;
 	uint16_t addr = 0;
@@ -313,51 +337,48 @@ void rt_bus_proto_bl_process()
 	uint32_t ret;
 	if (isFrameReady)
 	{
-		if ((rxBuffer[PRT_STX_IDX+PRT_FIX_BYTE_NUM] == PRT_STX) && (rxBuffer[rxFrameSize-PRT_ETX_LEFT_IDX-PRT_FIX_BYTE_END_NUM] == PRT_ETX)) // check stx and etx on received frame
-		{
-			//dbprintf("start - end ok\n\r");
-			pSize = ((uint16_t)rxBuffer[PRT_LEN_MSB_IDX+PRT_FIX_BYTE_NUM] << 8) | (rxBuffer[PRT_LEN_LSB_IDX+PRT_FIX_BYTE_NUM]);
-			//dbprintf("pSize: %d  %02X %02X rxFrameSize: %d ok",pSize,rxBuffer[PRT_LEN_MSB_IDX],rxBuffer[PRT_LEN_LSB_IDX],rxFrameSize);
-			//
-			if (pSize <= rxFrameSize - (8 + PRT_FIX_BYTE_NUM + PRT_FIX_BYTE_END_NUM))
+		cCRC = crc16(&sRT_Command_Packet.address, (sizeof(sRT_Command_Packet.address)+sizeof(sRT_Command_Packet.len)+sRT_Command_Packet.len));
+		if(memcmp(&sRT_Command_Packet.crc,&cCRC,2) == 0){
+			for (int i=0;i<gCommandCount ;i++)
 			{
-				//dbprintf("size ok");
-				addr = ((uint16_t)rxBuffer[PRT_AD_MSB_IDX + PRT_FIX_BYTE_NUM] << 8) | (rxBuffer[PRT_AD_LSB_IDX + PRT_FIX_BYTE_NUM]);
-				cCRC = crc16(&rxBuffer[PRT_AD_MSB_IDX+PRT_FIX_BYTE_NUM], rxFrameSize- (4 + PRT_FIX_BYTE_NUM+PRT_FIX_BYTE_END_NUM));
-				if (memcmp(&rxBuffer[rxFrameSize-(3+PRT_FIX_BYTE_END_NUM)],&cCRC,2)==0)
+				if (commands[i].cmd == sRT_Command_Packet.cmd)
 				{
-					//dbprintf("crc ok");
-					for (int i=0;i<gCommandCount ;i++)
-					{
-						if (commands[i].cmd == rxBuffer[PRT_CMD_IDX+PRT_FIX_BYTE_NUM])
+					txSize = 0;
+					gFrameCount++;
+					ret = commands[i].handler(&sRT_Command_Packet.data[0],(sRT_Command_Packet.len-sizeof(sRT_Command_Packet.cmd)),&gRT_Command_Packet.data[1],&txSize);
+					if(commands[i].cmd != CMD_Prepare_Response){
+						gRT_Command_Packet.cmd = commands[i].cmd;
+						if (ret == RT_PROTO_OK)
 						{
-							txSize = 0;
-							gFrameCount++;
-							ret = commands[i].handler(&rxBuffer[PRT_DATA_S_IDX+PRT_FIX_BYTE_NUM],pSize,&txBuffer[PRT_DATA_S_IDX+1],&txSize);
-							if (ret == RT_PROTO_OK)
-							{
-								txBuffer[PRT_DATA_S_IDX] = PRT_ACK;
-								txSize ++;
-							}
-							else
-							{
-								txBuffer[PRT_DATA_S_IDX] = PRT_NCK;
-								txBuffer[PRT_DATA_S_IDX+1] = ret;
-								txSize = 2;
-							}
-							rt_bus_proto_frame_pack(commands[i].cmd,&txSize);
-
-							break;
+							gRT_Command_Packet.data[0]= PRT_ACK;
+							txSize ++;
 						}
+						else
+						{
+							gRT_Command_Packet.data[0]= PRT_NCK;
+							gRT_Command_Packet.data[1]= ret;
+							txSize = 2;
+						}
+						rt_bus_proto_frame_pack(gRT_Command_Packet/*commands[i].cmd*/,&txSize);
 					}
+					break;
 				}
-				//dbprintf("rxFrameSize: %d startTick:%d , now: %d",rxFrameSize,lastRxTime,HAL_GetTick());
-				SPI_DMA_Reset();
 			}
+		}else{
+			dbprintf("CRC ERROR: Calculated: %04X Received: %04X",cCRC,sRT_Command_Packet.crc);
+			dbprintf("********************************************************");
+			dbprintf("STX :%02X",sRT_Command_Packet.stx);
+			dbprintf("ADDR :%04X",sRT_Command_Packet.address);
+			dbprintf("LEN :%04X",sRT_Command_Packet.len);
+			dbprintf("CMD :%02X",sRT_Command_Packet.cmd);
+			dbprintf("Data :%02X %02X %02X",sRT_Command_Packet.data[0],sRT_Command_Packet.data[1],sRT_Command_Packet.data[2]);
+			dbprintf("CRC :%04X",sRT_Command_Packet.crc);
+			dbprintf("ETX :%02X",sRT_Command_Packet.etx);
+			dbprintf("********************************************************");
 		}
+		SPI_DMA_Reset();
 		isFrameReady = 0;
 	}
-
 	if (rxFrameSize)
 	{
 		__disable_irq();
@@ -376,67 +397,70 @@ void rt_bus_proto_bl_dt(void)
 	uint16_t currentDMACnt = hspi1.hdmarx->Instance->CNDTR;
 	uint16_t size=0;
 	uint16_t start = 0;
-	dbprintf("%s",__func__);
-	//dbprintf("currentDMACnt: %d",currentDMACnt);
-	//if (hspi1.hdmarx->State == HAL_DMA_STATE_BUSY)
+	tRT_Command_Packet sRT_Command_Packet;
+	//
+	//	if(currentDMACnt !=prevDMACnt){
+	//		dbprintf("currentDMACnt: %d",currentDMACnt);
+	//	}
+	if (prevDMACnt > currentDMACnt)
 	{
-		if (prevDMACnt > currentDMACnt)
+		lastRxTime = HAL_GetTick();
+		size = prevDMACnt - currentDMACnt;
+		if (size > SPI_RX_BUF_SIZE)
+			return;
+
+		if(size < 9)
+			return;
+		start = (SPI_RX_BUF_SIZE - prevDMACnt);
+
+		if (rxFrameSize + size < SPI_RX_BUF_SIZE)
 		{
-			lastRxTime = HAL_GetTick();
-			//dbprintf("Received Data Count: %d\n\r",(prevDMACnt-currentDMACnt));
-			size = prevDMACnt - currentDMACnt;
-			if (size > SPI_RX_BUF_SIZE)
-				return;
-
-			start = (SPI_RX_BUF_SIZE - prevDMACnt);
-
-			if (rxFrameSize + size < SPI_RX_BUF_SIZE)
-			{
-				memcpy(&rxBuffer[rxFrameSize],&gSPI_Rx_Buf[start],size);
-				rxFrameSize += size;
-				if (rxBuffer[rxFrameSize-1-PRT_FIX_BYTE_END_NUM] == 0x03){
+			sRT_Command_Packet = rt_bus_proto_pack_parser(&gSPI_Rx_Buf[start]);
+			rxFrameSize += size;
+			if(sRT_Command_Packet.len < size){
+				if(sRT_Command_Packet.stx == PRT_STX && sRT_Command_Packet.etx==PRT_ETX)
 					isFrameReady = 0x01;
-				}
 			}
-
-			prevDMACnt = currentDMACnt;
 		}
-		else if (prevDMACnt < currentDMACnt)
-		{
-			lastRxTime = HAL_GetTick();
-			//dbprintf("Received Data Count: %d\n\r",(prevDMACnt-currentDMACnt));
-			size = prevDMACnt;
-			if (size > SPI_RX_BUF_SIZE)
-				return;
-			start = (SPI_RX_BUF_SIZE - prevDMACnt);
+		prevDMACnt = currentDMACnt;
 
-			if (rxFrameSize + size < SPI_RX_BUF_SIZE)
-			{
-				memcpy(&rxBuffer[rxFrameSize],&gSPI_Rx_Buf[start],size);
-				rxFrameSize +=size;
-			}
-
-			size = SPI_RX_BUF_SIZE - currentDMACnt;
-			start = 0;
-			if (rxFrameSize + size < SPI_RX_BUF_SIZE)
-			{
-				memcpy(&rxBuffer[rxFrameSize],&gSPI_Rx_Buf[start],size);
-				rxFrameSize += size;
-
-				if (rxBuffer[rxFrameSize-1-PRT_FIX_BYTE_END_NUM] == 0x03){
-					isFrameReady = 0x01;
-				}
-			}
-			prevDMACnt = currentDMACnt;
-		}
-		rt_bus_proto_bl_process();
 	}
+	else if (prevDMACnt < currentDMACnt)
+	{
+
+		lastRxTime = HAL_GetTick();
+		size = prevDMACnt;
+		if (size > SPI_RX_BUF_SIZE)
+			return;
+		start = (SPI_RX_BUF_SIZE - prevDMACnt);
+
+		if (rxFrameSize + size < SPI_RX_BUF_SIZE)
+		{
+			sRT_Command_Packet = rt_bus_proto_pack_parser(&gSPI_Rx_Buf[start]);
+			rxFrameSize += size;
+		}
+		size = SPI_RX_BUF_SIZE - currentDMACnt;
+		start = 0;
+
+
+		if (rxFrameSize + size < SPI_RX_BUF_SIZE)
+		{
+			sRT_Command_Packet = rt_bus_proto_pack_parser(&gSPI_Rx_Buf[start]);
+			rxFrameSize += size;
+			if(sRT_Command_Packet.len < size){
+				if(sRT_Command_Packet.stx == PRT_STX && sRT_Command_Packet.etx==PRT_ETX)
+					isFrameReady = 0x01;
+			}
+
+		}
+		prevDMACnt = currentDMACnt;
+	}
+	rt_bus_proto_bl_process(sRT_Command_Packet);
 }
 
 
 
 void rt_get_io_values(void){
-	dbprintf("%s",__func__);
 	//dbprintf("gSPI_Tx_Buf: %02X%02X%02X%02X sizeof(tPDO): %d",gSPI_Tx_Buf[4],gSPI_Tx_Buf[5],gSPI_Tx_Buf[6],gSPI_Tx_Buf[7],sizeof(tPDO));
 	uint16_t currentDMACnt = hspi1.hdmarx->Instance->CNDTR;
 	if((prevDMACnt-currentDMACnt) > 0 && (prevDMACnt-currentDMACnt) != 13){

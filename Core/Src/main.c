@@ -53,7 +53,6 @@ extern SPI_HandleTypeDef hspi1;
 extern DMA_HandleTypeDef hdma_spi1_rx;
 extern DMA_HandleTypeDef hdma_spi1_tx;
 uint16_t currentDMA = SPI_TX_BUF_SIZE;
-uint16_t prevDMA = SPI_TX_BUF_SIZE;
 uint8_t gRunMode = RT_RunMode_None;
 uint8_t gStayInBootloader = 0;
 extern uint8_t gSPI_Tx_Buf[SPI_TX_BUF_SIZE];
@@ -113,6 +112,7 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   dbprintf("Rota Compact Controller Auxiliary MCU Bootloader");
+  gRunMode = RT_RunMode_BL;
   while (1)
   {
     /* USER CODE END WHILE */
@@ -169,6 +169,7 @@ void SystemClock_Config(void)
 
 void comms_set_mode()
 {
+	SPI_DMA_Reset();
 	if (STM_MODE_SEL_GPIO_Port->IDR & STM_MODE_SEL_Pin){
 		g_comms_mode = COMMS_MODE_CONF;
 		dbprintf("Conf Mode");

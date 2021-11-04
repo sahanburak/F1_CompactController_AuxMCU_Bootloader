@@ -35,28 +35,28 @@
 /*============================================================================*/
 typedef enum
 {
-	CMD_PING=0x00,
+	CMD_PING			= 0,
+	CMD_Read			= 1,
+	CMD_CONF_Write		= 2,
+	CMD_SMP_Read		= 3,
+	CMD_SMP_Write		= 4,
+	CMD_Write			= 5,
+	CMD_CalRead			= 6,
+	CMD_CalWrite		= 7,
+	CMD_Ident			= 8,
+	CMD_Prepare_Response= 9,
 
-	CMD_Read,
-	CMD_CONF_Write,
-	CMD_SMP_Read,
-	CMD_SMP_Write,
-	CMD_Write,
-	CMD_CalRead,
-	CMD_CalWrite,
-	CMD_Ident,
-
-	CMD_Get_RunMode = 0xB0,
+	CMD_Get_RunMode 	= 0xB0,
 
 	CMD_EnterBootloader = 0xC0,
 
-	CMD_Info_Read 	= 0xD0,
+	CMD_Info_Read 		= 0xD0,
 
-	CMD_BL_Read 	= 0xFA,
-	CMD_BL_Write 	= 0xFB,
-	CMD_BL_ReadInfo = 0xFC,
-	CMD_BL_Erase 	= 0xFD,
-	CMD_BL_Stay 	= 0xFE,
+	CMD_BL_Read		 	= 0xFA,
+	CMD_BL_Write 		= 0xFB,
+	CMD_BL_ReadInfo		= 0xFC,
+	CMD_BL_Erase 		= 0xFD,
+	CMD_BL_Stay 		= 0xFE,
 
 	CMD_RESET 		= 0xFF,
 }eBusCommand;
@@ -112,6 +112,17 @@ typedef struct
 
 #define SPI_RX_BUF_SIZE		2048
 #define SPI_TX_BUF_SIZE		2048
+
+typedef struct
+{
+	uint8_t 	stx;
+	uint16_t 	address;
+	uint16_t 	len;
+	uint8_t 	cmd;
+	uint8_t 	data[SPI_RX_BUF_SIZE];
+	uint16_t 	crc;
+	uint8_t 	etx;
+}tRT_Command_Packet;
 /*============================================================================*/
 /* Global data                                                                */
 /*============================================================================*/
@@ -128,7 +139,9 @@ uint32_t rt_bus_cmd_bl_stay (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint
 uint32_t rt_bus_cmd_bl_write_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen);
 uint32_t rt_bus_cmd_bl_erase_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen);
 uint32_t rt_bus_cmd_read_data_handler(uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen);
-void rt_bus_proto_bl_process();
+uint32_t rt_bus_cmd_prepare_response_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen);
+tRT_Command_Packet rt_bus_proto_pack_parser(uint8_t *data);
+void rt_bus_proto_bl_process(tRT_Command_Packet sRT_Command_Packet);
 void rt_bus_proto_bl_dt(void);
 void rt_get_io_values(void);
 

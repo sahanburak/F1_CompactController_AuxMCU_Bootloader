@@ -23,6 +23,8 @@
 #include "stm32f1xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "io.h"
+#include "usart.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -88,11 +90,16 @@ void NMI_Handler(void)
 void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
-
+  dbprintf("%s",__func__);
+  uint16_t hardFaultCounter =0;
   /* USER CODE END HardFault_IRQn 0 */
   while (1)
   {
     /* USER CODE BEGIN W1_HardFault_IRQn 0 */
+	  if(hardFaultCounter++ ==4000){
+		  ERR_LED1_Toggle();
+		  hardFaultCounter = 0;
+	  }
     /* USER CODE END W1_HardFault_IRQn 0 */
   }
 }

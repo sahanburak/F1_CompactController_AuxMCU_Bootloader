@@ -7,6 +7,7 @@
 C_SRCS += \
 ../Core/Src/crc16.c \
 ../Core/Src/dma.c \
+../Core/Src/flash_if.c \
 ../Core/Src/gpio.c \
 ../Core/Src/i2c.c \
 ../Core/Src/io.c \
@@ -23,6 +24,7 @@ C_SRCS += \
 OBJS += \
 ./Core/Src/crc16.o \
 ./Core/Src/dma.o \
+./Core/Src/flash_if.o \
 ./Core/Src/gpio.o \
 ./Core/Src/i2c.o \
 ./Core/Src/io.o \
@@ -39,6 +41,7 @@ OBJS += \
 C_DEPS += \
 ./Core/Src/crc16.d \
 ./Core/Src/dma.d \
+./Core/Src/flash_if.d \
 ./Core/Src/gpio.d \
 ./Core/Src/i2c.d \
 ./Core/Src/io.d \
