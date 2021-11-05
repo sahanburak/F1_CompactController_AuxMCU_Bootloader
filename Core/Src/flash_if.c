@@ -46,15 +46,18 @@
  * @param  None
  * @retval None
  */
-void FLASH_If_Init(void)
+HAL_StatusTypeDef FLASH_If_Init(void)
 {
+	 HAL_StatusTypeDef status = HAL_OK;
 	/* Unlock the Program memory */
-	HAL_FLASH_Unlock();
-
+	status = HAL_FLASH_Unlock();
+	if(status != HAL_OK)
+		return status;
 	/* Clear all FLASH flags */
 	__HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_EOP | FLASH_FLAG_PGERR | FLASH_FLAG_WRPERR);
 	/* Unlock the Program memory */
-	HAL_FLASH_Lock();
+	status = HAL_FLASH_Lock();
+	return status;
 }
 
 /**

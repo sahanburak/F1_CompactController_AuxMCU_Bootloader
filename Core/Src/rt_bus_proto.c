@@ -37,7 +37,7 @@ const tBusCommand commands[] =
 		//{CMD_Info_Read,			&rt_bus_cmd_read_info_handler},
 		{CMD_RESET,				&rt_bus_cmd_reset},
 		{CMD_BL_Stay, 			&rt_bus_cmd_bl_stay},
-		{CMD_BL_Write,			&rt_bus_cmd_bl_write_handler},
+		//{CMD_BL_Write,			&rt_bus_cmd_bl_write_handler},
 		{CMD_BL_Erase,			&rt_bus_cmd_bl_erase_handler},
 		{CMD_Prepare_Response,	&rt_bus_cmd_prepare_response_handler},
 
@@ -190,11 +190,11 @@ uint32_t rt_bus_cmd_read_info_handler(uint8_t *rxData,uint16_t rxLen,uint8_t *tx
 uint32_t get_mem_type(uint32_t address)
 {
 	if ((address >= FLASH_START_ADDRESS) & (address<=FLASH_END_ADDRESS))
-	return MEM_TYPE_FLASH;
+		return MEM_TYPE_FLASH;
 	else if ((address >= RAM_START_ADDRESS) & (address <= RAM_END_ADDRESS))
-	return MEM_TYPE_RAM;
+		return MEM_TYPE_RAM;
 	else
-	return MEM_TYPE_UNK;
+		return MEM_TYPE_UNK;
 }
 
 uint32_t rt_bus_cmd_bl_stay (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
@@ -207,6 +207,7 @@ uint32_t rt_bus_cmd_bl_stay (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint
 uint32_t rt_bus_cmd_bl_write_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
 {
 	dbprintf("%s",__func__);
+	return 0;
 	uint32_t writeaddress;
 	uint32_t mtype;
 	uint8_t decBuffer[16];
@@ -271,15 +272,15 @@ uint32_t rt_bus_cmd_bl_erase_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *tx
 	uint32_t eraseLen;
 	uint32_t mtype = MEM_TYPE_UNK;
 
+	dbprintf("%s_%d",__func__,__LINE__);
 	if (rxLen != 0x08)
 		return RT_PROTO_DataError;
 
-
+	dbprintf("%s_%d",__func__,__LINE__);
 	memcpy(&eraseaddress,&rxData[0],4);
 	memcpy(&eraseLen,&rxData[4],4);
 
-	dbprintf("Erasing flash... Start Address : %08X, Size: %d\n\r",eraseaddress,eraseLen);
-
+	dbprintf("Erasing flash... Start Address : %08X, Size: %d",eraseaddress,eraseLen);
 
 	if (eraseaddress % FLASH_PAGE_SIZE){
 		dbprintf("%s_%d",__func__,__LINE__);
@@ -290,12 +291,17 @@ uint32_t rt_bus_cmd_bl_erase_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *tx
 		return RT_PROTO_DataError;
 	}
 
+	dbprintf("%s_%d",__func__,__LINE__);
 	mtype = get_mem_type(eraseaddress);
+	dbprintf("%s_%d",__func__,__LINE__);
 
 	if (mtype == MEM_TYPE_FLASH)
 	{
 		dbprintf("MEM_TYPE_FLASH");
-		FLASH_If_Init();
+		if (FLASH_If_Init() != HAL_OK){
+			dbprintf("Flash init error");
+			return RT_PROTO_ExcError;
+		}
 		if (FLASH_If_Erase(eraseaddress,eraseLen) != HAL_OK){
 			dbprintf("RT_PROTO_ExcError");
 			return RT_PROTO_ExcError;
@@ -312,6 +318,7 @@ uint32_t rt_bus_cmd_bl_erase_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *tx
 		return RT_PROTO_DataError;
 	}
 
+	dbprintf("%s_%d",__func__,__LINE__);
 	return RT_PROTO_OK;
 }
 
@@ -347,6 +354,17 @@ void rt_bus_proto_bl_process(tRT_Command_Packet sRT_Command_Packet )
 					gFrameCount++;
 					ret = commands[i].handler(&sRT_Command_Packet.data[0],(sRT_Command_Packet.len-sizeof(sRT_Command_Packet.cmd)),&gRT_Command_Packet.data[1],&txSize);
 					if(commands[i].cmd != CMD_Prepare_Response){
+						//						if(commands[i].cmd == CMD_BL_Erase){
+						//							dbprintf("********************************************************");
+						//							dbprintf("STX :%02X",sRT_Command_Packet.stx);
+						//							dbprintf("ADDR :%04X",sRT_Command_Packet.address);
+						//							dbprintf("LEN :%04X",sRT_Command_Packet.len);
+						//							dbprintf("CMD :%02X",sRT_Command_Packet.cmd);
+						//							dbprintf("Data :%02X %02X %02X",sRT_Command_Packet.data[0],sRT_Command_Packet.data[1],sRT_Command_Packet.data[2]);
+						//							dbprintf("CRC :%04X",sRT_Command_Packet.crc);
+						//							dbprintf("ETX :%02X",sRT_Command_Packet.etx);
+						//							dbprintf("********************************************************");
+						//						}
 						gRT_Command_Packet.cmd = commands[i].cmd;
 						if (ret == RT_PROTO_OK)
 						{
@@ -363,6 +381,18 @@ void rt_bus_proto_bl_process(tRT_Command_Packet sRT_Command_Packet )
 					}
 					break;
 				}
+				//				else{
+				//					dbprintf("Command Error !!!");
+				//					dbprintf("********************************************************");
+				//					dbprintf("STX :%02X",sRT_Command_Packet.stx);
+				//					dbprintf("ADDR :%04X",sRT_Command_Packet.address);
+				//					dbprintf("LEN :%04X",sRT_Command_Packet.len);
+				//					dbprintf("CMD :%02X",sRT_Command_Packet.cmd);
+				//					dbprintf("Data :%02X %02X %02X",sRT_Command_Packet.data[0],sRT_Command_Packet.data[1],sRT_Command_Packet.data[2]);
+				//					dbprintf("CRC :%04X",sRT_Command_Packet.crc);
+				//					dbprintf("ETX :%02X",sRT_Command_Packet.etx);
+				//					dbprintf("********************************************************");
+				//				}
 			}
 		}else{
 			dbprintf("CRC ERROR: Calculated: %04X Received: %04X",cCRC,sRT_Command_Packet.crc);
@@ -376,6 +406,7 @@ void rt_bus_proto_bl_process(tRT_Command_Packet sRT_Command_Packet )
 			dbprintf("ETX :%02X",sRT_Command_Packet.etx);
 			dbprintf("********************************************************");
 		}
+		memset(&sRT_Command_Packet,0,sizeof(tRT_Command_Packet));
 		SPI_DMA_Reset();
 		isFrameReady = 0;
 	}
@@ -418,8 +449,10 @@ void rt_bus_proto_bl_dt(void)
 			sRT_Command_Packet = rt_bus_proto_pack_parser(&gSPI_Rx_Buf[start]);
 			rxFrameSize += size;
 			if(sRT_Command_Packet.len < size){
-				if(sRT_Command_Packet.stx == PRT_STX && sRT_Command_Packet.etx==PRT_ETX)
+				if(sRT_Command_Packet.stx == PRT_STX && sRT_Command_Packet.etx==PRT_ETX){
 					isFrameReady = 0x01;
+					dbprintf("Packet Ready");
+				}
 			}
 		}
 		prevDMACnt = currentDMACnt;
@@ -448,8 +481,10 @@ void rt_bus_proto_bl_dt(void)
 			sRT_Command_Packet = rt_bus_proto_pack_parser(&gSPI_Rx_Buf[start]);
 			rxFrameSize += size;
 			if(sRT_Command_Packet.len < size){
-				if(sRT_Command_Packet.stx == PRT_STX && sRT_Command_Packet.etx==PRT_ETX)
+				if(sRT_Command_Packet.stx == PRT_STX && sRT_Command_Packet.etx==PRT_ETX){
 					isFrameReady = 0x01;
+					dbprintf("Packet Ready");
+				}
 			}
 
 		}
@@ -462,6 +497,7 @@ void rt_bus_proto_bl_dt(void)
 
 void rt_get_io_values(void){
 	//dbprintf("gSPI_Tx_Buf: %02X%02X%02X%02X sizeof(tPDO): %d",gSPI_Tx_Buf[4],gSPI_Tx_Buf[5],gSPI_Tx_Buf[6],gSPI_Tx_Buf[7],sizeof(tPDO));
+	return;
 	uint16_t currentDMACnt = hspi1.hdmarx->Instance->CNDTR;
 	if((prevDMACnt-currentDMACnt) > 0 && (prevDMACnt-currentDMACnt) != 13){
 		//dbprintf("diff : %d",(prevDMACnt-currentDMACnt));
