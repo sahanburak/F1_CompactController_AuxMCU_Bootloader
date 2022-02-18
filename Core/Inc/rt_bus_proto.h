@@ -22,6 +22,9 @@
 #include <stdio.h>
 #include "stm32f1xx_hal.h"
 #include "crc16.h"
+#include "aes.h"
+#include "spi.h"
+#include "rt_info.h"
 /*============================================================================*/
 /* Forward declarations                                                       */
 /*============================================================================*/
@@ -70,14 +73,6 @@ typedef enum
 	RT_PROTO_ExcError,
 }eReturnCodes;
 
-typedef enum
-{
-	RT_RunMode_None,
-	RT_RunMode_BL,
-	RT_RunMode_APP,
-	RT_RunMode_Jumping
-}eRunModes;
-
 typedef uint32_t (*tCmdHandler)(uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen);
 
 typedef struct
@@ -86,32 +81,11 @@ typedef struct
 	tCmdHandler handler;
 }tBusCommand;
 
-
-//	0		1		2		3		4		5		6		n-3		n-2		n-1
-//			MSB		LSB		MSB 	LSB						MSB		LSB
-//	STX		AD0		AD1		LEN0	LEN1	CMD		DATA	CRC0	CRC1	ETX
-#define PRT_FIX_BYTE_NUM	1
-#define PRT_FIX_BYTE_END_NUM	1
-
-#define PRT_STX_IDX			0
-#define PRT_AD_MSB_IDX		1
-#define PRT_AD_LSB_IDX		2
-#define PRT_LEN_MSB_IDX		3
-#define PRT_LEN_LSB_IDX		4
-#define PRT_CMD_IDX			5
-#define PRT_DATA_S_IDX		6
-#define PRT_CRC_MSB_LEFT_IDX		3
-#define PRT_CRC_LSB_LEFT_IDX		2
-#define PRT_ETX_LEFT_IDX			1
-
 #define PRT_STX		0x01
 #define PRT_ETX		0x03
 
 #define PRT_ACK		0x00
 #define PRT_NCK		0x01
-
-#define SPI_RX_BUF_SIZE		2048
-#define SPI_TX_BUF_SIZE		2048
 
 typedef struct
 {
@@ -119,14 +93,14 @@ typedef struct
 	uint16_t 	address;
 	uint16_t 	len;
 	uint8_t 	cmd;
-	uint8_t 	data[SPI_RX_BUF_SIZE];
+	uint8_t 	data[FW_UPDATE_PACKET_SIZE];
 	uint16_t 	crc;
 	uint8_t 	etx;
 }tRT_Command_Packet;
 /*============================================================================*/
 /* Global data                                                                */
 /*============================================================================*/
-extern const tBusCommand 		commands[];
+extern const tBusCommand commands[];
 extern const int gCommandCount;
 /*============================================================================*/
 /* Declarations                                                               */
@@ -135,7 +109,7 @@ uint32_t rt_bus_cmd_ping_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *txData
 uint32_t rt_bus_cmd_reset (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen);
 uint32_t rt_bus_cmd_read_info_handler(uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen);
 uint32_t rt_bus_cmd_get_runmode_handler(uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen);
-uint32_t rt_bus_cmd_bl_stay (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen);
+uint32_t rt_bus_cmd_bl_stay_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen);
 uint32_t rt_bus_cmd_bl_write_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen);
 uint32_t rt_bus_cmd_bl_erase_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen);
 uint32_t rt_bus_cmd_read_data_handler(uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen);

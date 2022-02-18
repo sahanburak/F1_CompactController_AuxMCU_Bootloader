@@ -111,8 +111,8 @@ uint8_t io_update(void)
 {
 	HAL_StatusTypeDef status = HAL_ERROR;
 	unsigned char rxData = 0;
-	unsigned char txData = (unsigned char)(g_PDI.dout & 0xFF);
 #if 0
+	unsigned char txData = (unsigned char)(g_PDI.dout & 0xFF);
 	status = HAL_SPI_TransmitReceive(&hspi3, &txData, &rxData, 1, 10000);
 	HAL_GPIO_WritePin(EXP_LATCH_GPIO_Port, EXP_LATCH_Pin, 0);
 	HAL_GPIO_WritePin(EXP_LATCH_GPIO_Port, EXP_LATCH_Pin, 1);

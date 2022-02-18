@@ -222,7 +222,7 @@ uint32_t FLASH_If_Erase(uint32_t start,uint32_t length);
 uint32_t FLASH_If_GetWriteProtectionStatus(void);
 uint32_t FLASH_If_Write(uint32_t destination, uint32_t *p_source, uint32_t length);
 uint32_t FLASH_If_WriteProtectionConfig(uint32_t modifier);
-
+uint32_t HAL_Read_Unique_ID(uint32_t *id);
 #endif /* INC_FLASH_IF_H_ */
 /**@}*/
 /******************************************************************************/

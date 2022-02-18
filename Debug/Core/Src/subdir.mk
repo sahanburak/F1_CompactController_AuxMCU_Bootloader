@@ -5,14 +5,18 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
+../Core/Src/aes.c \
 ../Core/Src/crc16.c \
 ../Core/Src/dma.c \
 ../Core/Src/flash_if.c \
 ../Core/Src/gpio.c \
 ../Core/Src/i2c.c \
+../Core/Src/iap.c \
 ../Core/Src/io.c \
 ../Core/Src/main.c \
 ../Core/Src/rt_bus_proto.c \
+../Core/Src/rt_init.c \
+../Core/Src/sha1.c \
 ../Core/Src/spi.c \
 ../Core/Src/stm32f1xx_hal_msp.c \
 ../Core/Src/stm32f1xx_it.c \
@@ -22,14 +26,18 @@ C_SRCS += \
 ../Core/Src/usart.c 
 
 OBJS += \
+./Core/Src/aes.o \
 ./Core/Src/crc16.o \
 ./Core/Src/dma.o \
 ./Core/Src/flash_if.o \
 ./Core/Src/gpio.o \
 ./Core/Src/i2c.o \
+./Core/Src/iap.o \
 ./Core/Src/io.o \
 ./Core/Src/main.o \
 ./Core/Src/rt_bus_proto.o \
+./Core/Src/rt_init.o \
+./Core/Src/sha1.o \
 ./Core/Src/spi.o \
 ./Core/Src/stm32f1xx_hal_msp.o \
 ./Core/Src/stm32f1xx_it.o \
@@ -39,14 +47,18 @@ OBJS += \
 ./Core/Src/usart.o 
 
 C_DEPS += \
+./Core/Src/aes.d \
 ./Core/Src/crc16.d \
 ./Core/Src/dma.d \
 ./Core/Src/flash_if.d \
 ./Core/Src/gpio.d \
 ./Core/Src/i2c.d \
+./Core/Src/iap.d \
 ./Core/Src/io.d \
 ./Core/Src/main.d \
 ./Core/Src/rt_bus_proto.d \
+./Core/Src/rt_init.d \
+./Core/Src/sha1.d \
 ./Core/Src/spi.d \
 ./Core/Src/stm32f1xx_hal_msp.d \
 ./Core/Src/stm32f1xx_it.d \

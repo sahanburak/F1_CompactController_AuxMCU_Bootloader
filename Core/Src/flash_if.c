@@ -18,6 +18,8 @@
 /*============================================================================*/
 #include "flash_if.h"
 #include "stm32f1xx_hal_flash.h"
+#include "stm32f1xx_hal.h"
+#include <string.h>
 /*============================================================================*/
 /* Forward declarations                                                       */
 /*============================================================================*/
@@ -228,6 +230,28 @@ uint32_t FLASH_If_WriteProtectionConfig(uint32_t protectionstate)
 	return (result == HAL_OK ? FLASHIF_OK: FLASHIF_PROTECTION_ERRROR);
 }
 
+
+/**
+ * @brief  Read MCU unique ID.
+ * @param  id: read ID value as pointer
+ * @retval uint32_t HAL_OK if successful, otherwise returns an flash error code.
+ */
+uint32_t HAL_Read_Unique_ID(uint32_t *id){
+	uint32_t ul_rc = HAL_OK;
+	uint8_t index = 0;
+
+	uint32_t id0 = HAL_GetUIDw0();
+	memcpy(&id[index],&id0,sizeof(uint32_t));
+	index++;
+
+	uint32_t id1 = HAL_GetUIDw1();
+	memcpy(&id[index],&id1,sizeof(uint32_t));
+	index++;
+
+	uint32_t id2 = HAL_GetUIDw2();
+	memcpy(&id[index],&id2,sizeof(uint32_t));
+	return ul_rc;
+}
 /**@}*/
 /******************************************************************************/
 /*   Copyright (C) Rota Teknik 2019,  All Rights Reserved. Confidential.      */

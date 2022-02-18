@@ -6,7 +6,7 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
+  * <h2><center>&copy; Copyright (c) 2022 STMicroelectronics.
   * All rights reserved.</center></h2>
   *
   * This software component is licensed by ST under BSD 3-Clause license,
@@ -21,7 +21,10 @@
 #include "spi.h"
 
 /* USER CODE BEGIN 0 */
-
+#include <string.h>
+extern uint16_t prevDMACnt;
+extern uint8_t gSPI_Tx_DMA_Buf[SPI_TX_BUF_SIZE];
+extern uint8_t gSPI_Rx_DMA_Buf[SPI_RX_BUF_SIZE];
 /* USER CODE END 0 */
 
 SPI_HandleTypeDef hspi1;
@@ -99,7 +102,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* spiHandle)
     hdma_spi1_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
     hdma_spi1_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
     hdma_spi1_rx.Init.Mode = DMA_CIRCULAR;
-    hdma_spi1_rx.Init.Priority = DMA_PRIORITY_MEDIUM;
+    hdma_spi1_rx.Init.Priority = DMA_PRIORITY_HIGH;
     if (HAL_DMA_Init(&hdma_spi1_rx) != HAL_OK)
     {
       Error_Handler();
@@ -115,7 +118,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* spiHandle)
     hdma_spi1_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
     hdma_spi1_tx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
     hdma_spi1_tx.Init.Mode = DMA_NORMAL;
-    hdma_spi1_tx.Init.Priority = DMA_PRIORITY_VERY_HIGH;
+    hdma_spi1_tx.Init.Priority = DMA_PRIORITY_MEDIUM;
     if (HAL_DMA_Init(&hdma_spi1_tx) != HAL_OK)
     {
       Error_Handler();
@@ -164,7 +167,49 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* spiHandle)
 }
 
 /* USER CODE BEGIN 1 */
+/**
+ * @brief  SPI DMA reset function
+ * @param  none
+ * @retval none
+ */
+void SPI_DMA_Reset(void){
+	//dbprintf("%s",__func__);
+	/* Disable the peripheral */
+	hdma_spi1_tx.Instance->CCR &= ~DMA_CCR_EN;
+	hdma_spi1_tx.DmaBaseAddress->IFCR  = (DMA_FLAG_GL1 << hdma_spi1_tx.ChannelIndex);
+	/* Configure DMA Channel data length */
+	hdma_spi1_tx.Instance->CNDTR = SPI_TX_BUF_SIZE;
+	/* Configure DMA Channel destination address */
+	hdma_spi1_tx.Instance->CPAR = (uint32_t)&hspi1.Instance->DR;
+	/* Configure DMA Channel source address */
+	hdma_spi1_tx.Instance->CMAR = (uint32_t)&gSPI_Tx_DMA_Buf[0];
+	/* Enable the Peripheral */
+	hdma_spi1_tx.Instance->CCR |= DMA_CCR_EN;
 
+	prevDMACnt = SPI_RX_BUF_SIZE;
+}
+
+/**
+ * @brief  SPI communication initialize
+ * @param  none
+ * @retval none
+ */
+void SPI_Comms_Init(void)
+{
+
+	memset(&gSPI_Rx_DMA_Buf[0],0,SPI_RX_BUF_SIZE);
+	memset(&gSPI_Tx_DMA_Buf[0],0,SPI_TX_BUF_SIZE);
+
+	HAL_SPI_Receive_DMA(&hspi1, gSPI_Rx_DMA_Buf, SPI_RX_BUF_SIZE);
+
+	SET_BIT(hspi1.Instance->CR2, SPI_CR2_TXDMAEN);
+	CLEAR_BIT(hspi1.Instance->CR1, SPI_CR1_SSM);
+	CLEAR_BIT(hspi1.Instance->CR1, SPI_CR1_SSI);
+
+	HAL_DMA_Start(&hdma_spi1_tx, (uint32_t)&gSPI_Tx_DMA_Buf[0], (uint32_t)&hspi1.Instance->DR, SPI_TX_BUF_SIZE);
+
+	Set_Comms_Mode();
+}
 /* USER CODE END 1 */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

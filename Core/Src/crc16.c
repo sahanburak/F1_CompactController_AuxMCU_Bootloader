@@ -74,10 +74,24 @@ uint16_t const crc_ccitt_table[256] = {
 /*============================================================================*/
 /* Implementation of functions                                                */
 /*============================================================================*/
+
+/**
+ * @brief  crc calculation iteration function
+ * @param  crc	: last calculated crc value
+ * @param  c	: new character to be included in new iterative crc calculation
+ * @retval unsigned short : new iterative crc value
+ */
 static inline unsigned short crc_ccitt_byte(uint16_t crc, const uint8_t c)
 {
 	return (crc >> 8) ^ crc_ccitt_table[(crc ^ c) & 0xff];
 }
+
+/**
+ * @brief  16 bit crc caluculation
+ * @param  data_p	: raw data to be use in crc calculation
+ * @param  length	: raw data length
+ * @retval unsigned short : crc value
+ */
 unsigned short crc16(unsigned char *data_p, unsigned short length)
 {
 	unsigned int crc = 0x0000;

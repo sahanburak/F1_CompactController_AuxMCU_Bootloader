@@ -19,7 +19,6 @@
 #include "rt_bus_proto.h"
 #include "main.h"
 #include "io.h"
-//#include "ssi.h"
 #include "usart.h"
 /*============================================================================*/
 /* Forward declarations                                                       */
@@ -36,8 +35,8 @@ const tBusCommand commands[] =
 		{CMD_Get_RunMode,		&rt_bus_cmd_get_runmode_handler},
 		//{CMD_Info_Read,			&rt_bus_cmd_read_info_handler},
 		{CMD_RESET,				&rt_bus_cmd_reset},
-		{CMD_BL_Stay, 			&rt_bus_cmd_bl_stay},
-		//{CMD_BL_Write,			&rt_bus_cmd_bl_write_handler},
+		{CMD_BL_Stay, 			&rt_bus_cmd_bl_stay_handler},
+		{CMD_BL_Write,			&rt_bus_cmd_bl_write_handler},
 		{CMD_BL_Erase,			&rt_bus_cmd_bl_erase_handler},
 		{CMD_Prepare_Response,	&rt_bus_cmd_prepare_response_handler},
 
@@ -62,23 +61,33 @@ extern uint16_t currentDMA;
 extern uint16_t prevDMA;
 extern tPDO g_PDO;
 extern tPDI g_PDI;
+extern DMA_HandleTypeDef hdma_spi1_tx;
+extern DMA_HandleTypeDef hdma_spi1_rx;
 /*============================================================================*/
 /* Module global data                                                         */
 /*============================================================================*/
 uint8_t flashBuffer[1024 +16];
 const int gCommandCount = (sizeof(commands)/sizeof(tBusCommand));
-uint8_t gSPI_Tx_Buf[SPI_TX_BUF_SIZE];
+uint8_t gSPI_Tx_DMA_Buf[SPI_TX_BUF_SIZE];
+uint8_t gSPI_Rx_DMA_Buf[SPI_RX_BUF_SIZE];
 uint8_t gSPI_Rx_Buf[SPI_RX_BUF_SIZE];
 uint8_t isFrameReady=0;
 uint32_t rxFrameSize = 0;
 uint32_t lastRxTime = 0;
 uint32_t gFrameCount = 0;
-/*static*/ uint16_t prevDMACnt=SPI_RX_BUF_SIZE;
+uint16_t prevDMACnt=SPI_RX_BUF_SIZE;
 tRT_Command_Packet gRT_Command_Packet;
 
 /*============================================================================*/
 /* Implementation of functions                                                */
 /*============================================================================*/
+
+/**
+ * @brief  Communication protocol frame packager
+ * @param  sRT_Command_Packet 	:  structure of the communication protocol packet
+ * @param  datalength			:  Communication frame size
+ * @retval none
+ */
 void rt_bus_proto_frame_pack(tRT_Command_Packet sRT_Command_Packet, uint16_t *datalength)
 {
 	uint16_t cCRC = 0;
@@ -87,26 +96,38 @@ void rt_bus_proto_frame_pack(tRT_Command_Packet sRT_Command_Packet, uint16_t *da
 	sRT_Command_Packet.address = 0;
 	sRT_Command_Packet.len = (*datalength)+sizeof(sRT_Command_Packet.cmd);
 
-	cCRC =  crc16(&sRT_Command_Packet.address, (*datalength)+5);
+	cCRC =  crc16((unsigned char *) &sRT_Command_Packet.address, (*datalength)+5);
 	sRT_Command_Packet.crc = cCRC;
 	sRT_Command_Packet.etx = PRT_ETX;
 
 	int offset = 0;
-	memcpy(&gSPI_Tx_Buf[offset],&sRT_Command_Packet.stx,sizeof(sRT_Command_Packet.stx));
+	memcpy(&gSPI_Tx_DMA_Buf[offset],&sRT_Command_Packet.stx,sizeof(sRT_Command_Packet.stx));
 	offset +=sizeof(sRT_Command_Packet.stx);
-	memcpy(&gSPI_Tx_Buf[offset],&sRT_Command_Packet.address,sizeof(sRT_Command_Packet.address));
+	memcpy(&gSPI_Tx_DMA_Buf[offset],&sRT_Command_Packet.address,sizeof(sRT_Command_Packet.address));
 	offset +=sizeof(sRT_Command_Packet.address);
-	memcpy(&gSPI_Tx_Buf[offset],&sRT_Command_Packet.len,sizeof(sRT_Command_Packet.len));
+	memcpy(&gSPI_Tx_DMA_Buf[offset],&sRT_Command_Packet.len,sizeof(sRT_Command_Packet.len));
 	offset +=sizeof(sRT_Command_Packet.len);
-	memcpy(&gSPI_Tx_Buf[offset],&sRT_Command_Packet.cmd,sizeof(sRT_Command_Packet.cmd));
+	memcpy(&gSPI_Tx_DMA_Buf[offset],&sRT_Command_Packet.cmd,sizeof(sRT_Command_Packet.cmd));
 	offset +=sizeof(sRT_Command_Packet.cmd);
-	memcpy(&gSPI_Tx_Buf[offset],&sRT_Command_Packet.data[0],(sRT_Command_Packet.len-sizeof(sRT_Command_Packet.cmd)));
+	memcpy(&gSPI_Tx_DMA_Buf[offset],&sRT_Command_Packet.data[0],(sRT_Command_Packet.len-sizeof(sRT_Command_Packet.cmd)));
 	offset +=(sRT_Command_Packet.len-sizeof(sRT_Command_Packet.cmd));
-	memcpy(&gSPI_Tx_Buf[offset],&sRT_Command_Packet.crc,sizeof(sRT_Command_Packet.crc));
+	memcpy(&gSPI_Tx_DMA_Buf[offset],&sRT_Command_Packet.crc,sizeof(sRT_Command_Packet.crc));
 	offset +=sizeof(sRT_Command_Packet.crc);
-	memcpy(&gSPI_Tx_Buf[offset],&sRT_Command_Packet.etx,sizeof(sRT_Command_Packet.etx));
+	memcpy(&gSPI_Tx_DMA_Buf[offset],&sRT_Command_Packet.etx,sizeof(sRT_Command_Packet.etx));
+	offset +=sizeof(sRT_Command_Packet.etx);
+
+	rtprintf("Tx Frame Packet: [ ");
+	for(int i=0;i<offset;i++){
+		rtprintf("%02X ",gSPI_Tx_DMA_Buf[i]);
+	}
+	rtprintf("]\n\r");
 }
 
+/**
+ * @brief  Parser from Raw data to communication structure
+ * @param  data	 				: raw data pointer
+ * @retval tRT_Command_Packet	: structured data from raw packet
+ */
 tRT_Command_Packet rt_bus_proto_pack_parser(uint8_t *data){
 
 	tRT_Command_Packet sRT_Command_Packet;
@@ -127,9 +148,17 @@ tRT_Command_Packet rt_bus_proto_pack_parser(uint8_t *data){
 	return sRT_Command_Packet;
 }
 
-uint32_t rt_bus_cmd_ping_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
+/**
+ * @brief  Ping function handler
+ * @param  rxData	: received data
+ * @param  rxLen	: length of the received data
+ * @param  txData	: data to be transmit
+ * @param  txLen	: length of to be transmit data
+ * @retval RT_PROTO_OK			: successfull
+ * @retval RT_PROTO_FrameError	: Frame error
+ */
+uint32_t rt_bus_cmd_ping_handler(uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
 {
-	dbprintf("%s",__func__);
 	if (rxLen != 1)
 	{
 		return RT_PROTO_FrameError;
@@ -140,19 +169,33 @@ uint32_t rt_bus_cmd_ping_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *txData
 	return RT_PROTO_OK;
 }
 
-uint32_t rt_bus_cmd_reset (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
+/**
+ * @brief  Soft reset function handler
+ * @param  rxData	: received data
+ * @param  rxLen	: length of the received data
+ * @param  txData	: data to be transmit
+ * @param  txLen	: length of to be transmit data
+ * @retval RT_PROTO_OK			: successfull
+ */
+uint32_t rt_bus_cmd_reset(uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
 {
-	dbprintf("%s",__func__);
 	/*iapMailbox[0] = 0;
 	iapMailbox[1] = 0;*/
 	NVIC_SystemReset();
 	return RT_PROTO_OK;
 }
 
-
+/**
+ * @brief  Get run mode function hadler
+ * @param  rxData	: received data
+ * @param  rxLen	: length of the received data
+ * @param  txData	: data to be transmit
+ * @param  txLen	: length of to be transmit data
+ * @retval RT_PROTO_OK			: successfull
+ */
 uint32_t rt_bus_cmd_get_runmode_handler(uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
 {
-	dbprintf("%s",__func__);
+	dbprintf("%s gRunMode: %d",__func__,gRunMode);
 	txData[0] = gRunMode;
 	(*txLen) = (*txLen)+1;
 	return RT_PROTO_OK;
@@ -165,7 +208,7 @@ uint32_t rt_bus_cmd_read_info_handler(uint8_t *rxData,uint16_t rxLen,uint8_t *tx
 
 	for (int i=11;i>=0;i--)
 	{
-		txData[length++] = *((uint8_t *)UID_BASE + i);
+		txData[length++] = *((uint8_t *)UID_BASE + i); // device id
 	}
 
 
@@ -197,41 +240,61 @@ uint32_t get_mem_type(uint32_t address)
 		return MEM_TYPE_UNK;
 }
 
-uint32_t rt_bus_cmd_bl_stay (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
+/**
+ * @brief  Stays bootloader without jump to application function handler
+ * @param  rxData	: received data
+ * @param  rxLen	: length of the received data
+ * @param  txData	: data to be transmit
+ * @param  txLen	: length of to be transmit data
+ * @retval RT_PROTO_OK			: successfull
+ */
+uint32_t rt_bus_cmd_bl_stay_handler(uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
 {
 	dbprintf("%s",__func__);
 	gStayInBootloader = 1;
 	return RT_PROTO_OK;
 }
 
-uint32_t rt_bus_cmd_bl_write_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
+/**
+ * @brief  Writes the firmware to the flash.
+ * @param  rxData	: received data
+ * @param  rxLen	: length of the received data
+ * @param  txData	: data to be transmit
+ * @param  txLen	: length of to be transmit data
+ * @retval RT_PROTO_OK			: successfull
+ * @retval RT_PROTO_DataError	: received data error
+ * @retval RT_PROTO_ExcError	: function execution error
+ */
+uint32_t rt_bus_cmd_bl_write_handler(uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
 {
 	dbprintf("%s",__func__);
-	return 0;
+	txData[0] = gRunMode;
+	(*txLen) = (*txLen)+1;
 	uint32_t writeaddress;
 	uint32_t mtype;
 	uint8_t decBuffer[16];
 	uint8_t *iv;
 	uint8_t *data;
-	if (rxLen != 1060)
+	if (rxLen != FW_UPDATE_PACKET_SIZE)
 		return RT_PROTO_DataError;
 
 	memcpy(&writeaddress,&rxData[0],4);
 
-	/*if (writeaddress < APPLICATION_ADDRESS){
+	if (writeaddress < APPLICATION_ADDRESS){
 		dbprintf("Write address error!!! writeaddress : %08X, APPLICATION_ADDRESS:%08X",writeaddress,APPLICATION_ADDRESS);
 		return RT_PROTO_DataError;
 	}
-	 */
-	// Addr       IV      [ Magic     Data ]
-	//  4         16      [  4        1024 ]
-	//				      [ Encrypted      ]
-	// 0..3      4..19	  [ 20..23	..    1060 ]
+	/* Firmware update packet frame */
+	// Addr       IV      [ Magic      Random Data      Magic     Raw Data	]
+	//  4         16      [   4      		8      		  4       	1024 	]
+	//				      [ Encrypted      							   		]
+	// 0..3      4..19	  [ 20..23		  24..31    	32..35	  36..1060	]
+	#define RT_PROTO_HEAD_AND_TAIL_LEN	9
 
 	iv = &rxData[4];
 	data = &rxData[20];
 
-	//AES_CBC_decrypt_buffer(decBuffer,data,16,AES_KEY,iv);
+	AES_CBC_decrypt_buffer(decBuffer,data,FW_PACKET_MAGIC_DATA_SIZE,AES_KEY,iv);
 	if (memcmp("ROTA",&decBuffer[0],4) != 0){
 		return RT_PROTO_DataError;
 	}
@@ -239,12 +302,12 @@ uint32_t rt_bus_cmd_bl_write_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *tx
 		return RT_PROTO_DataError;
 	}
 
-	//AES_CBC_decrypt_buffer(flashBuffer,data,1040,AES_KEY,iv);
+	AES_CBC_decrypt_buffer(flashBuffer,data,FW_ENC_DATA_PACKET_SIZE,AES_KEY,iv);
 	mtype = get_mem_type(writeaddress);
 	if (mtype == MEM_TYPE_FLASH)
 	{
-		//FLASH_If_Init();
-		uint32_t ret = 0;/*FLASH_If_Write(writeaddress,(uint32_t *)&flashBuffer[16],1024/4);*/
+		FLASH_If_Init();
+		uint32_t ret = FLASH_If_Write(writeaddress,(uint32_t *)&flashBuffer[16],FW_RAW_DATA_PACKET_SIZE/4 /* 32-bit conversion*/ );
 		if (ret == HAL_OK){
 			dbprintf("Writing firmware to 0x%08X...",writeaddress);
 		}else{
@@ -254,7 +317,7 @@ uint32_t rt_bus_cmd_bl_write_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *tx
 	}
 	else if (mtype == MEM_TYPE_RAM)
 	{
-		memcpy((uint8_t *)writeaddress,&rxData[4],1024);
+		memcpy((uint8_t *)writeaddress,&rxData[4],FW_RAW_DATA_PACKET_SIZE);
 	}
 	else
 	{
@@ -265,18 +328,25 @@ uint32_t rt_bus_cmd_bl_write_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *tx
 	return RT_PROTO_OK;
 }
 
-uint32_t rt_bus_cmd_bl_erase_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
+/**
+ * @brief  Erases the firmware from the flash.
+ * @param  rxData	: received data
+ * @param  rxLen	: length of the received data
+ * @param  txData	: data to be transmit
+ * @param  txLen	: length of to be transmit data
+ * @retval RT_PROTO_OK			: successfull
+ * @retval RT_PROTO_DataError	: received data error
+ * @retval RT_PROTO_ExcError	: function execution error
+ */
+uint32_t rt_bus_cmd_bl_erase_handler(uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
 {
-	dbprintf("%s",__func__);
 	uint32_t eraseaddress;
 	uint32_t eraseLen;
 	uint32_t mtype = MEM_TYPE_UNK;
 
-	dbprintf("%s_%d",__func__,__LINE__);
 	if (rxLen != 0x08)
 		return RT_PROTO_DataError;
 
-	dbprintf("%s_%d",__func__,__LINE__);
 	memcpy(&eraseaddress,&rxData[0],4);
 	memcpy(&eraseLen,&rxData[4],4);
 
@@ -291,9 +361,7 @@ uint32_t rt_bus_cmd_bl_erase_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *tx
 		return RT_PROTO_DataError;
 	}
 
-	dbprintf("%s_%d",__func__,__LINE__);
 	mtype = get_mem_type(eraseaddress);
-	dbprintf("%s_%d",__func__,__LINE__);
 
 	if (mtype == MEM_TYPE_FLASH)
 	{
@@ -318,33 +386,33 @@ uint32_t rt_bus_cmd_bl_erase_handler (uint8_t *rxData,uint16_t rxLen,uint8_t *tx
 		return RT_PROTO_DataError;
 	}
 
-	dbprintf("%s_%d",__func__,__LINE__);
 	return RT_PROTO_OK;
 }
 
+/**
+ * @brief  Idle function for to prepare the response.  Its about SPI communication.
+ * @param  rxData	: received data
+ * @param  rxLen	: length of the received data
+ * @param  txData	: data to be transmit
+ * @param  txLen	: length of to be transmit data
+ * @retval RT_PROTO_OK			: successfull
+ * @retval RT_PROTO_DataError	: received data error
+ * @retval RT_PROTO_ExcError	: function execution error
+ */
 uint32_t rt_bus_cmd_prepare_response_handler(uint8_t *rxData,uint16_t rxLen,uint8_t *txData,uint16_t *txLen)
 {
-	dbprintf("%s",__func__);
+	/* Must not do nothing */
 	return RT_PROTO_OK;
-}
-
-void SPI_DMA_Reset(){
-	HAL_SPI_DMAStop(&hspi1);
-	HAL_SPI_TransmitReceive_DMA(&hspi1,gSPI_Tx_Buf, gSPI_Rx_Buf, SPI_RX_BUF_SIZE);
-	prevDMACnt = SPI_RX_BUF_SIZE;
-	rxFrameSize = 0;
 }
 
 void rt_bus_proto_bl_process(tRT_Command_Packet sRT_Command_Packet )
 {
-	uint16_t pSize = 0;
-	uint16_t addr = 0;
 	uint16_t cCRC = 0;
 	uint16_t txSize = 0;
 	uint32_t ret;
 	if (isFrameReady)
 	{
-		cCRC = crc16(&sRT_Command_Packet.address, (sizeof(sRT_Command_Packet.address)+sizeof(sRT_Command_Packet.len)+sRT_Command_Packet.len));
+		cCRC = crc16((unsigned char *) &sRT_Command_Packet.address, (sizeof(sRT_Command_Packet.address)+sizeof(sRT_Command_Packet.len)+sRT_Command_Packet.len));
 		if(memcmp(&sRT_Command_Packet.crc,&cCRC,2) == 0){
 			for (int i=0;i<gCommandCount ;i++)
 			{
@@ -354,22 +422,11 @@ void rt_bus_proto_bl_process(tRT_Command_Packet sRT_Command_Packet )
 					gFrameCount++;
 					ret = commands[i].handler(&sRT_Command_Packet.data[0],(sRT_Command_Packet.len-sizeof(sRT_Command_Packet.cmd)),&gRT_Command_Packet.data[1],&txSize);
 					if(commands[i].cmd != CMD_Prepare_Response){
-						//						if(commands[i].cmd == CMD_BL_Erase){
-						//							dbprintf("********************************************************");
-						//							dbprintf("STX :%02X",sRT_Command_Packet.stx);
-						//							dbprintf("ADDR :%04X",sRT_Command_Packet.address);
-						//							dbprintf("LEN :%04X",sRT_Command_Packet.len);
-						//							dbprintf("CMD :%02X",sRT_Command_Packet.cmd);
-						//							dbprintf("Data :%02X %02X %02X",sRT_Command_Packet.data[0],sRT_Command_Packet.data[1],sRT_Command_Packet.data[2]);
-						//							dbprintf("CRC :%04X",sRT_Command_Packet.crc);
-						//							dbprintf("ETX :%02X",sRT_Command_Packet.etx);
-						//							dbprintf("********************************************************");
-						//						}
 						gRT_Command_Packet.cmd = commands[i].cmd;
 						if (ret == RT_PROTO_OK)
 						{
 							gRT_Command_Packet.data[0]= PRT_ACK;
-							txSize ++;
+							txSize +=1;
 						}
 						else
 						{
@@ -381,18 +438,6 @@ void rt_bus_proto_bl_process(tRT_Command_Packet sRT_Command_Packet )
 					}
 					break;
 				}
-				//				else{
-				//					dbprintf("Command Error !!!");
-				//					dbprintf("********************************************************");
-				//					dbprintf("STX :%02X",sRT_Command_Packet.stx);
-				//					dbprintf("ADDR :%04X",sRT_Command_Packet.address);
-				//					dbprintf("LEN :%04X",sRT_Command_Packet.len);
-				//					dbprintf("CMD :%02X",sRT_Command_Packet.cmd);
-				//					dbprintf("Data :%02X %02X %02X",sRT_Command_Packet.data[0],sRT_Command_Packet.data[1],sRT_Command_Packet.data[2]);
-				//					dbprintf("CRC :%04X",sRT_Command_Packet.crc);
-				//					dbprintf("ETX :%02X",sRT_Command_Packet.etx);
-				//					dbprintf("********************************************************");
-				//				}
 			}
 		}else{
 			dbprintf("CRC ERROR: Calculated: %04X Received: %04X",cCRC,sRT_Command_Packet.crc);
@@ -410,7 +455,7 @@ void rt_bus_proto_bl_process(tRT_Command_Packet sRT_Command_Packet )
 		SPI_DMA_Reset();
 		isFrameReady = 0;
 	}
-	if (rxFrameSize)
+	/*if (rxFrameSize)
 	{
 		__disable_irq();
 		//dbprintf("lastRxTime: %d now: %d",lastRxTime,HAL_GetTick());
@@ -420,19 +465,19 @@ void rt_bus_proto_bl_process(tRT_Command_Packet sRT_Command_Packet )
 			SPI_DMA_Reset();
 		}
 		__enable_irq();
-	}
+	}*/
 }
 
-void rt_bus_proto_bl_dt(void)
+void rt_bus_proto_bl_dt_old(void)
 {
 	uint16_t currentDMACnt = hspi1.hdmarx->Instance->CNDTR;
 	uint16_t size=0;
 	uint16_t start = 0;
 	tRT_Command_Packet sRT_Command_Packet;
 	//
-	//	if(currentDMACnt !=prevDMACnt){
-	//		dbprintf("currentDMACnt: %d",currentDMACnt);
-	//	}
+		if(currentDMACnt !=prevDMACnt){
+			dbprintf("currentDMACnt: %d",currentDMACnt);
+		}
 	if (prevDMACnt > currentDMACnt)
 	{
 		lastRxTime = HAL_GetTick();
@@ -446,12 +491,12 @@ void rt_bus_proto_bl_dt(void)
 
 		if (rxFrameSize + size < SPI_RX_BUF_SIZE)
 		{
-			sRT_Command_Packet = rt_bus_proto_pack_parser(&gSPI_Rx_Buf[start]);
+			sRT_Command_Packet = rt_bus_proto_pack_parser(&gSPI_Rx_DMA_Buf[start]);
 			rxFrameSize += size;
 			if(sRT_Command_Packet.len < size){
 				if(sRT_Command_Packet.stx == PRT_STX && sRT_Command_Packet.etx==PRT_ETX){
 					isFrameReady = 0x01;
-					dbprintf("Packet Ready");
+					//dbprintf("Packet Ready");
 				}
 			}
 		}
@@ -469,7 +514,7 @@ void rt_bus_proto_bl_dt(void)
 
 		if (rxFrameSize + size < SPI_RX_BUF_SIZE)
 		{
-			sRT_Command_Packet = rt_bus_proto_pack_parser(&gSPI_Rx_Buf[start]);
+			sRT_Command_Packet = rt_bus_proto_pack_parser(&gSPI_Rx_DMA_Buf[start]);
 			rxFrameSize += size;
 		}
 		size = SPI_RX_BUF_SIZE - currentDMACnt;
@@ -478,12 +523,12 @@ void rt_bus_proto_bl_dt(void)
 
 		if (rxFrameSize + size < SPI_RX_BUF_SIZE)
 		{
-			sRT_Command_Packet = rt_bus_proto_pack_parser(&gSPI_Rx_Buf[start]);
+			sRT_Command_Packet = rt_bus_proto_pack_parser(&gSPI_Rx_DMA_Buf[start]);
 			rxFrameSize += size;
 			if(sRT_Command_Packet.len < size){
 				if(sRT_Command_Packet.stx == PRT_STX && sRT_Command_Packet.etx==PRT_ETX){
 					isFrameReady = 0x01;
-					dbprintf("Packet Ready");
+					//dbprintf("Packet Ready");
 				}
 			}
 
@@ -495,6 +540,22 @@ void rt_bus_proto_bl_dt(void)
 
 
 
+
+void rt_bus_proto_bl_dt(void)
+{
+	tRT_Command_Packet sRT_Command_Packet;
+	memcpy(gSPI_Rx_Buf, gSPI_Rx_DMA_Buf, SPI_RX_BUF_SIZE);
+	sRT_Command_Packet = rt_bus_proto_pack_parser(&gSPI_Rx_Buf[0]);
+	if(sRT_Command_Packet.len < 1068){
+		if(sRT_Command_Packet.stx == PRT_STX && sRT_Command_Packet.etx==PRT_ETX){
+			isFrameReady = 0x01;
+			//dbprintf("Packet Ready");
+		}
+	}
+	memset(gSPI_Rx_DMA_Buf, 0, SPI_RX_BUF_SIZE);
+	rt_bus_proto_bl_process(sRT_Command_Packet);
+}
+
 void rt_get_io_values(void){
 	//dbprintf("gSPI_Tx_Buf: %02X%02X%02X%02X sizeof(tPDO): %d",gSPI_Tx_Buf[4],gSPI_Tx_Buf[5],gSPI_Tx_Buf[6],gSPI_Tx_Buf[7],sizeof(tPDO));
 	return;
@@ -505,11 +566,11 @@ void rt_get_io_values(void){
 	if((prevDMACnt-currentDMACnt) >= (sizeof(tPDI)+1)){
 		//lastRxTime = HAL_GetTick();
 		HAL_GPIO_WritePin(TP1_GPIO_Port, TP1_Pin,0);
-		memcpy(&g_PDI,&gSPI_Rx_Buf[1],sizeof(tPDI));
+		memcpy(&g_PDI,&gSPI_Rx_DMA_Buf[1],sizeof(tPDI));
 		//io_update();
 		/*g_PDO.ssi = ssi_read();
 		memcpy(&gSPI_Tx_Buf[4],&g_PDO.ssi,4);*/
-		memcpy(&gSPI_Tx_Buf[0],&g_PDO,8);
+		memcpy(&gSPI_Tx_DMA_Buf[0],&g_PDO,8);
 		//dbprintf("SSI RAW: %08X  Din: %08X",g_PDO.ssi,g_PDO.din);
 
 		prevDMACnt = currentDMACnt;

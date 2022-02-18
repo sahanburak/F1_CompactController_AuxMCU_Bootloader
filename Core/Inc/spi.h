@@ -6,7 +6,7 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
+  * <h2><center>&copy; Copyright (c) 2022 STMicroelectronics.
   * All rights reserved.</center></h2>
   *
   * This software component is licensed by ST under BSD 3-Clause license,
@@ -34,13 +34,24 @@ extern "C" {
 extern SPI_HandleTypeDef hspi1;
 
 /* USER CODE BEGIN Private defines */
+#define RT_PROTO_HEAD_AND_TAIL_LEN	9
+#define FW_PACKET_FLASH_ADDRES_SIZE	4
+#define FW_PACKET_IV_DATA_SIZE		16
+#define FW_PACKET_MAGIC_DATA_SIZE	(4 + 8 + 4)		/* Magic(ROTA) + Random Data + Magic(ROTA)*/
+#define FW_RAW_DATA_PACKET_SIZE 	(1024)			/* Firmware send packet len*/
+#define FW_ENC_DATA_PACKET_SIZE 	(FW_RAW_DATA_PACKET_SIZE + FW_PACKET_MAGIC_DATA_SIZE)
+#define FW_UPDATE_PACKET_SIZE 		(FW_PACKET_FLASH_ADDRES_SIZE + FW_PACKET_IV_DATA_SIZE + FW_ENC_DATA_PACKET_SIZE)
+#define MAX_SPI_PACKET_SIZE 		(FW_UPDATE_PACKET_SIZE + RT_PROTO_HEAD_AND_TAIL_LEN)
 
+#define SPI_RX_BUF_SIZE		MAX_SPI_PACKET_SIZE
+#define SPI_TX_BUF_SIZE		MAX_SPI_PACKET_SIZE
 /* USER CODE END Private defines */
 
 void MX_SPI1_Init(void);
 
 /* USER CODE BEGIN Prototypes */
-
+void SPI_DMA_Reset(void);
+void SPI_Comms_Init(void);
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus

@@ -46,7 +46,7 @@ _Min_Stack_Size = 0x400 ; /* required amount of stack */
 MEMORY
 {
   RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 48K
-  FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 256K
+  FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 32K
 }
 
 /* Sections */
@@ -60,6 +60,14 @@ SECTIONS
     . = ALIGN(4);
   } >FLASH
 
+  /* Length and version of the application */
+  .app_info :
+  {
+  	. = ALIGN(4);
+  	KEEP(*(.app_info))
+  	. = ALIGN(4);
+  } >FLASH
+  
   /* The program code and other data into "FLASH" Rom type memory */
   .text :
   {
@@ -129,6 +137,15 @@ SECTIONS
     . = ALIGN(4);
   } >FLASH
 
+  .RAMVectorTable(NOLOAD):
+  {
+    KEEP(*(.RAMVectorTable))
+  } > RAM
+  
+  .IAPMailbox(NOLOAD):
+  {
+    KEEP(*(.IAPMailbox))
+  } > RAM
   /* Used by the startup to initialize data */
   _sidata = LOADADDR(.data);
 
@@ -146,6 +163,15 @@ SECTIONS
     _edata = .;        /* define a global symbol at data end */
 
   } >RAM AT> FLASH
+  
+  /* Length and version of the application */
+  .app_sha :
+  {
+  	. = ALIGN(4);
+  	KEEP(*(.app_sha))
+  	. = ALIGN(4);
+  } >FLASH
+  
 
   /* Uninitialized data section into "RAM" Ram type memory */
   . = ALIGN(4);

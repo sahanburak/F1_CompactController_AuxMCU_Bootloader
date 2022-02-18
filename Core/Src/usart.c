@@ -6,7 +6,7 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
+  * <h2><center>&copy; Copyright (c) 2022 STMicroelectronics.
   * All rights reserved.</center></h2>
   *
   * This software component is licensed by ST under BSD 3-Clause license,
@@ -23,6 +23,7 @@
 /* USER CODE BEGIN 0 */
 #include <string.h>
 #include <stdarg.h>
+#include <stdio.h>
 /* USER CODE END 0 */
 
 UART_HandleTypeDef huart1;
@@ -168,6 +169,7 @@ void rtprintf(const char *fmt, ...)
     vprint((const char *)fmt, argp);
     va_end(argp);
 }
+
 /* USER CODE END 1 */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

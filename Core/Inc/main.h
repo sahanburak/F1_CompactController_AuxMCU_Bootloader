@@ -34,6 +34,7 @@ extern "C" {
 /* USER CODE BEGIN Includes */
 #include "rt_init.h"
 #include "flash_if.h"
+#include "iap.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -55,7 +56,7 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-
+void Set_Comms_Mode(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
