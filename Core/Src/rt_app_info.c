@@ -7,9 +7,9 @@
 * @brief       This file Auto Generated during pre-build time. Do not change anything.
 *
 * @author      Burak Şahan
-* @date        2022-02-18
+* @date        2022-07-27
 *
-* @ingroup     F1_CompactController_IOExp_Bootloader
+* @ingroup     F1_CompactController_AuxMCU_Bootloader
 * @{
 *****************************************************************************/
 
@@ -25,10 +25,10 @@
 /*============================================================================*/
 /* Constants and macros                                                       */
 /*============================================================================*/
-const char* project_description = "F1_CompactController_IOExp_Bootloader";
-const char* git_version = "1638de1";
+const char* project_description = "F1_CompactController_AuxMCU_Bootloader";
+const char* git_version = "da4fc81";
 const char* company = "Rota Teknik";
-const char* timestamp = "18022022_175130";
+const char* timestamp = "27072022_232015";
 
 /*============================================================================*/
 /* Type definitions                                                           */

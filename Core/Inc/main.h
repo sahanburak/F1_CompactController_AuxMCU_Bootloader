@@ -79,12 +79,6 @@ void Set_Comms_Mode(void);
 #define INT_LED1_GPIO_Port GPIOC
 #define INT_LED2_Pin GPIO_PIN_12
 #define INT_LED2_GPIO_Port GPIOC
-#define LCD_SCL_Pin GPIO_PIN_6
-#define LCD_SCL_GPIO_Port GPIOB
-#define LCD_SDA_Pin GPIO_PIN_7
-#define LCD_SDA_GPIO_Port GPIOB
-#define LCD_RES_Pin GPIO_PIN_8
-#define LCD_RES_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 #define COMMS_MODE_PDIO		0x00
 #define COMMS_MODE_CONF		0x01

@@ -10,7 +10,6 @@ C_SRCS += \
 ../Core/Src/dma.c \
 ../Core/Src/flash_if.c \
 ../Core/Src/gpio.c \
-../Core/Src/i2c.c \
 ../Core/Src/iap.c \
 ../Core/Src/io.c \
 ../Core/Src/main.c \
@@ -33,7 +32,6 @@ OBJS += \
 ./Core/Src/dma.o \
 ./Core/Src/flash_if.o \
 ./Core/Src/gpio.o \
-./Core/Src/i2c.o \
 ./Core/Src/iap.o \
 ./Core/Src/io.o \
 ./Core/Src/main.o \
@@ -56,7 +54,6 @@ C_DEPS += \
 ./Core/Src/dma.d \
 ./Core/Src/flash_if.d \
 ./Core/Src/gpio.d \
-./Core/Src/i2c.d \
 ./Core/Src/iap.d \
 ./Core/Src/io.d \
 ./Core/Src/main.d \
@@ -76,5 +73,5 @@ C_DEPS += \
 
 # Each subdirectory must supply rules for building sources it contributes
 Core/Src/%.o: ../Core/Src/%.c Core/Src/subdir.mk
-	arm-none-eabi-gcc "$<" -mcpu=cortex-m3 -std=gnu11 -DUSE_HAL_DRIVER -DBOARD_VERSION=50 -DSTM32F103xE -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -Os -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@" --specs=nano.specs -mfloat-abi=soft -mthumb -o "$@"
+	arm-none-eabi-gcc "$<" -mcpu=cortex-m3 -std=gnu11 -DUSE_HAL_DRIVER -DBOARD_VERSION=50 -DSTM32F103xE -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@" --specs=nano.specs -mfloat-abi=soft -mthumb -o "$@"
 

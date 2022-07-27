@@ -23,8 +23,8 @@
 /* USER CODE BEGIN 0 */
 #include <string.h>
 extern uint16_t prevDMACnt;
-extern uint8_t gSPI_Tx_DMA_Buf[SPI_TX_BUF_SIZE];
-extern uint8_t gSPI_Rx_DMA_Buf[SPI_RX_BUF_SIZE];
+extern uint8_t gSPI_Tx_DMA_Buf[MAX_SPI_PACKET_SIZE];
+extern uint8_t gSPI_Rx_DMA_Buf[MAX_SPI_PACKET_SIZE];
 /* USER CODE END 0 */
 
 SPI_HandleTypeDef hspi1;
@@ -178,7 +178,7 @@ void SPI_DMA_Reset(void){
 	hdma_spi1_tx.Instance->CCR &= ~DMA_CCR_EN;
 	hdma_spi1_tx.DmaBaseAddress->IFCR  = (DMA_FLAG_GL1 << hdma_spi1_tx.ChannelIndex);
 	/* Configure DMA Channel data length */
-	hdma_spi1_tx.Instance->CNDTR = SPI_TX_BUF_SIZE;
+	hdma_spi1_tx.Instance->CNDTR = MAX_SPI_PACKET_SIZE;
 	/* Configure DMA Channel destination address */
 	hdma_spi1_tx.Instance->CPAR = (uint32_t)&hspi1.Instance->DR;
 	/* Configure DMA Channel source address */
@@ -186,7 +186,7 @@ void SPI_DMA_Reset(void){
 	/* Enable the Peripheral */
 	hdma_spi1_tx.Instance->CCR |= DMA_CCR_EN;
 
-	prevDMACnt = SPI_RX_BUF_SIZE;
+	prevDMACnt = MAX_SPI_PACKET_SIZE;
 }
 
 /**
@@ -197,16 +197,16 @@ void SPI_DMA_Reset(void){
 void SPI_Comms_Init(void)
 {
 
-	memset(&gSPI_Rx_DMA_Buf[0],0,SPI_RX_BUF_SIZE);
-	memset(&gSPI_Tx_DMA_Buf[0],0,SPI_TX_BUF_SIZE);
+	memset(&gSPI_Rx_DMA_Buf[0],0,MAX_SPI_PACKET_SIZE);
+	memset(&gSPI_Tx_DMA_Buf[0],0,MAX_SPI_PACKET_SIZE);
 
-	HAL_SPI_Receive_DMA(&hspi1, gSPI_Rx_DMA_Buf, SPI_RX_BUF_SIZE);
+	HAL_SPI_Receive_DMA(&hspi1, gSPI_Rx_DMA_Buf, MAX_SPI_PACKET_SIZE);
 
 	SET_BIT(hspi1.Instance->CR2, SPI_CR2_TXDMAEN);
 	CLEAR_BIT(hspi1.Instance->CR1, SPI_CR1_SSM);
 	CLEAR_BIT(hspi1.Instance->CR1, SPI_CR1_SSI);
 
-	HAL_DMA_Start(&hdma_spi1_tx, (uint32_t)&gSPI_Tx_DMA_Buf[0], (uint32_t)&hspi1.Instance->DR, SPI_TX_BUF_SIZE);
+	HAL_DMA_Start(&hdma_spi1_tx, (uint32_t)&gSPI_Tx_DMA_Buf[0], (uint32_t)&hspi1.Instance->DR, MAX_SPI_PACKET_SIZE);
 
 	Set_Comms_Mode();
 }

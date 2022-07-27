@@ -10,11 +10,12 @@ C_SRCS += \
 ../Core/Src/dma.c \
 ../Core/Src/flash_if.c \
 ../Core/Src/gpio.c \
-../Core/Src/i2c.c \
 ../Core/Src/iap.c \
 ../Core/Src/io.c \
 ../Core/Src/main.c \
+../Core/Src/rt_app_info.c \
 ../Core/Src/rt_bus_proto.c \
+../Core/Src/rt_info.c \
 ../Core/Src/rt_init.c \
 ../Core/Src/sha1.c \
 ../Core/Src/spi.c \
@@ -31,11 +32,12 @@ OBJS += \
 ./Core/Src/dma.o \
 ./Core/Src/flash_if.o \
 ./Core/Src/gpio.o \
-./Core/Src/i2c.o \
 ./Core/Src/iap.o \
 ./Core/Src/io.o \
 ./Core/Src/main.o \
+./Core/Src/rt_app_info.o \
 ./Core/Src/rt_bus_proto.o \
+./Core/Src/rt_info.o \
 ./Core/Src/rt_init.o \
 ./Core/Src/sha1.o \
 ./Core/Src/spi.o \
@@ -52,11 +54,12 @@ C_DEPS += \
 ./Core/Src/dma.d \
 ./Core/Src/flash_if.d \
 ./Core/Src/gpio.d \
-./Core/Src/i2c.d \
 ./Core/Src/iap.d \
 ./Core/Src/io.d \
 ./Core/Src/main.d \
+./Core/Src/rt_app_info.d \
 ./Core/Src/rt_bus_proto.d \
+./Core/Src/rt_info.d \
 ./Core/Src/rt_init.d \
 ./Core/Src/sha1.d \
 ./Core/Src/spi.d \
@@ -70,5 +73,5 @@ C_DEPS += \
 
 # Each subdirectory must supply rules for building sources it contributes
 Core/Src/%.o: ../Core/Src/%.c Core/Src/subdir.mk
-	arm-none-eabi-gcc "$<" -mcpu=cortex-m3 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F103xE -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@" --specs=nano.specs -mfloat-abi=soft -mthumb -o "$@"
+	arm-none-eabi-gcc "$<" -mcpu=cortex-m3 -std=gnu11 -g3 -DDEBUG -DBOARD_VERSION=50 -DUSE_HAL_DRIVER -DSTM32F103xE -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@" --specs=nano.specs -mfloat-abi=soft -mthumb -o "$@"
 

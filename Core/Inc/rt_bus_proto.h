@@ -9,7 +9,7 @@
  * @author      Burak Sahan
  * @date        Dec 1, 2020
  *
- * @ingroup     F1_CompactController_IOExp_Bootloader
+ * @ingroup     F1_CompactController_AuxMCU_Bootloader
  * @{
  *****************************************************************************/
 #ifndef INC_RT_BUS_PROTO_H_
@@ -93,10 +93,20 @@ typedef struct
 	uint16_t 	address;
 	uint16_t 	len;
 	uint8_t 	cmd;
-	uint8_t 	data[FW_UPDATE_PACKET_SIZE];
+	uint8_t 	data[MAX_SPI_PACKET_SIZE];
 	uint16_t 	crc;
 	uint8_t 	etx;
 }tRT_Command_Packet;
+
+typedef struct
+{
+	uint16_t 	pck_idx;
+	uint16_t 	total_pck_count;
+	uint32_t 	wr_addr;							/* Firmware write start address */
+	uint8_t 	iv[FW_PACKET_IV_DATA_SIZE];
+	uint8_t 	enc_data[FW_ENC_DATA_PACKET_SIZE];
+}tRT_FW_Update_Command_Packet;
+
 /*============================================================================*/
 /* Global data                                                                */
 /*============================================================================*/

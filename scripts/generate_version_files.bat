@@ -3,7 +3,7 @@ chcp 65001
 ::setting company 
 SET author="Burak Şahan"
 SET company="Rota Teknik"
-SET project_name="F1_CompactController_IOExp_Bootloader"
+SET project_name="F1_CompactController_AuxMCU_Bootloader"
 
 set get_git_version=git describe --always
 for /f %%i in ('%get_git_version%') do set git_version=%%i

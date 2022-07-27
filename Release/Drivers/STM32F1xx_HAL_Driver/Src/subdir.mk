@@ -13,7 +13,6 @@ C_SRCS += \
 ../Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_flash_ex.c \
 ../Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_gpio.c \
 ../Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_gpio_ex.c \
-../Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_i2c.c \
 ../Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_pwr.c \
 ../Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc.c \
 ../Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc_ex.c \
@@ -31,7 +30,6 @@ OBJS += \
 ./Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_flash_ex.o \
 ./Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_gpio.o \
 ./Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_gpio_ex.o \
-./Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_i2c.o \
 ./Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_pwr.o \
 ./Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc.o \
 ./Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc_ex.o \
@@ -49,7 +47,6 @@ C_DEPS += \
 ./Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_flash_ex.d \
 ./Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_gpio.d \
 ./Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_gpio_ex.d \
-./Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_i2c.d \
 ./Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_pwr.d \
 ./Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc.d \
 ./Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc_ex.d \
@@ -61,5 +58,5 @@ C_DEPS += \
 
 # Each subdirectory must supply rules for building sources it contributes
 Drivers/STM32F1xx_HAL_Driver/Src/%.o: ../Drivers/STM32F1xx_HAL_Driver/Src/%.c Drivers/STM32F1xx_HAL_Driver/Src/subdir.mk
-	arm-none-eabi-gcc "$<" -mcpu=cortex-m3 -std=gnu11 -DUSE_HAL_DRIVER -DBOARD_VERSION=50 -DSTM32F103xE -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -Os -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@" --specs=nano.specs -mfloat-abi=soft -mthumb -o "$@"
+	arm-none-eabi-gcc "$<" -mcpu=cortex-m3 -std=gnu11 -DUSE_HAL_DRIVER -DBOARD_VERSION=50 -DSTM32F103xE -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@" --specs=nano.specs -mfloat-abi=soft -mthumb -o "$@"
 

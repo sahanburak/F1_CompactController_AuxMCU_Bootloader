@@ -7,9 +7,9 @@
 * @brief       This file Auto Generated during pre-build time. Do not change anything.
 *
 * @author      Burak Şahan
-* @date        2022-02-18
+* @date        2022-07-27
 *
-* @ingroup     F1_CompactController_IOExp_Bootloader
+* @ingroup     F1_CompactController_AuxMCU_Bootloader
 * @{
 *****************************************************************************/
 #ifndef RT_APP_INFO_H_

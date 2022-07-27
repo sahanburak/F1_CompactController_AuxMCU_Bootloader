@@ -22,6 +22,7 @@
 #include "spi.h"
 #include "rt_init.h"
 #include <string.h>
+#include "usart.h"
 /*============================================================================*/
 /* Forward declarations                                                       */
 /*============================================================================*/
@@ -60,7 +61,7 @@ void iap_PrepareForJump(void)
 	HAL_NVIC_DisableIRQ(DMA1_Channel2_IRQn);
 	HAL_NVIC_DisableIRQ(DMA1_Channel3_IRQn);
 	HAL_NVIC_DisableIRQ(DMA1_Channel4_IRQn);
-	HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
+	HAL_NVIC_DisableIRQ(EXTI9_5_IRQn);
 	HAL_NVIC_DisableIRQ(SysTick_IRQn);
 	HAL_NVIC_DisableIRQ(USART1_IRQn);
 	HAL_NVIC_DisableIRQ(SPI1_IRQn);
@@ -79,23 +80,25 @@ void iap_PrepareForJump(void)
  * @param  None
  * @retval None
  */
+
 void iap_JumpToApplication(void)
 {
-	uint32_t  applicationStack;
-	pFunction applicationEntry;
-
-	iap_PrepareForJump();
+	pFunction mainApplication;
 
 	/* Retrieve values */
-	applicationStack = *(__IO uint32_t *) (APPLICATION_ADDRESS);
-	applicationEntry = (pFunction) *(__IO uint32_t*) (APPLICATION_ADDRESS + 4);
+	uint32_t mainAppAddr =  (uint32_t)(APPLICATION_ADDRESS);
+	uint32_t mainAppStack = (uint32_t)*((uint32_t*)mainAppAddr);
+	mainApplication = (pFunction)*(uint32_t*)(mainAppAddr + 4); // Corrected!!!
 
+	__disable_irq();
 	/* Set a valid stack pointer for the application */
-	__set_MSP(applicationStack);
+	__set_MSP(mainAppStack);
+	SCB->VTOR = mainAppAddr;
+	__enable_irq();
 
 	dbprintf("Jumping to application...\n");
 	/* Start the application */
-	applicationEntry();
+	mainApplication();
 }
 
 /**
@@ -115,12 +118,14 @@ uint8_t iap_CheckApplication(void)
 	unsigned char *p = (uint8_t *)(APPLICATION_ADDRESS);
 	uint32_t JumpAddress= *(__IO uint32_t*) (APPLICATION_ADDRESS + 4);
 
-	if ((JumpAddress < APPLICATION_ADDRESS)|| (JumpAddress > APPLICATION_ADDRESS + MAX_APPLICATION_SIZE))
+	if ((JumpAddress < APPLICATION_ADDRESS)|| (JumpAddress > APPLICATION_ADDRESS + MAX_APPLICATION_SIZE)){
+		dbprintf("IAP Application address not in range error!!! JumpAddress: %08X APPLICATION_ADDRESS:[ %08X-%08X ]",JumpAddress,APPLICATION_ADDRESS,(APPLICATION_ADDRESS + MAX_APPLICATION_SIZE));
 		return IAP_APP_ADDR_NOT_IN_RAGE;
-
+	}
 	length = *(__IO uint32_t*) (APPLICATION_LEN_ADDRESS);
 	if ((length <= VECTOR_TABLE_SIZE) || (length > MAX_APPLICATION_SIZE))
 	{
+		dbprintf("IAP Application size is over range error!!! length: %d VECTOR_TABLE_SIZE: %d MAX_APPLICATION_SIZE: %d",length,VECTOR_TABLE_SIZE,MAX_APPLICATION_SIZE);
 		return IAP_APP_SIZE_OVER_RAGE;
 	}
 
@@ -130,8 +135,10 @@ uint8_t iap_CheckApplication(void)
 
 	if (memcmp(csha1,&p[length],(size_t)20)!=0)
 	{
+		dbprintf("IAP Checksum Error!!!");
 		return IAP_APP_CHCKSUM_ERR;
 	}
+	dbprintf("IAP APP Success.");
 	return IAP_APP_SUCCESS;
 }
 

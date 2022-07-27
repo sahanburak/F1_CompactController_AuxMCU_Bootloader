@@ -51,7 +51,7 @@ tRotaDeviceInfo sRotaDeviceInfo;
  */
 void rt_get_app_info(void){
 
-	sRotaDeviceInfo.ubSwLevel = SWLEVEL_APPLICATION;
+	sRotaDeviceInfo.ubSwLevel = SWLEVEL_BOOTLOADER;
 	sRotaDeviceInfo.ubRunMode = RUNMODE_OPERATION;
 	sRotaDeviceInfo.ulManufacturerID = ROTA_MANUFACTURER_ID;
 	sRotaDeviceInfo.ubDeviceClass =DEVICE_CONTROLLER;
